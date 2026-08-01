@@ -7,6 +7,8 @@
     <title>macOS WebOS | HINS</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css">
+    <!-- Pyodide 用于前端运行Python -->
+    <script src="https://cdn.jsdelivr.net/npm/pyodide@0.25.0/pyodide.js"></script>
     <script>
         tailwind.config = {
             darkMode: "class",
@@ -45,17 +47,6 @@
 </head>
 <body class="dark text-white overflow-hidden select-none" id="desktop">
 
-<!-- 开机启动画面 -->
-<div id="startScreen" class="fixed inset-0 bg-black start-screen flex flex-col items-center justify-center z-[9999]">
-    <i class="fa fa-apple text-white text-7xl mb-6 animate-pulse"></i>
-    <div class="w-48 h-1 bg-gray-700 rounded-full overflow-hidden">
-        <div id="loadBar" class="h-full bg-white w-0 transition-all duration-75"></div>
-    </div>
-    <p class="mt-4 text-sm opacity-70">正在启动 HINS macOS Web System...</p>
-    <!-- 紧急跳过按钮，卡死可点 -->
-    <button onclick="finishLoad()" class="mt-4 text-xs opacity-50">点击跳过启动页</button>
-</div>
-
 <!-- 桌面右键菜单 -->
 <div id="contextMenu" class="fixed glass bg-black/70 rounded-lg py-2 px-2 text-sm w-36">
     <div class="px-2 py-1 hover:bg-white/20 rounded cursor-pointer" onclick="refreshDesktop()">刷新桌面</div>
@@ -77,8 +68,8 @@
     </div>
 </div>
 
-<!-- 顶部菜单栏 -->
-<div id="topBar" class="fixed top-0 left-0 right-0 h-7 bg-macTop glass flex items-center justify-between px-4 z-50 hidden">
+<!-- 顶部菜单栏（默认直接显示） -->
+<div id="topBar" class="fixed top-0 left-0 right-0 h-7 bg-macTop glass flex items-center justify-between px-4 z-50">
     <div class="flex gap-4 items-center">
         <i class="fa fa-apple text-lg"></i>
         <span class="text-sm font-medium">HINS-MacOS</span>
@@ -91,8 +82,8 @@
     </div>
 </div>
 
-<!-- 桌面右侧图标 -->
-<div id="desktopIcons" class="absolute top-10 right-2 md:right-6 flex flex-col gap-4 hidden">
+<!-- 桌面右侧图标（新增Python编辑器图标） -->
+<div id="desktopIcons" class="absolute top-10 right-2 md:right-6 flex flex-col gap-4">
     <div class="flex flex-col items-center w-16 cursor-pointer open-window" data-id="finder">
         <div class="w-12 h-12 rounded-xl bg-yellow-500/80 flex items-center justify-center text-2xl">
             <i class="fa fa-folder-open"></i>
@@ -123,6 +114,13 @@
         </div>
         <span class="text-xs mt-1">文本编辑</span>
     </div>
+    <!-- Python编辑器图标 -->
+    <div class="flex flex-col items-center w-16 cursor-pointer open-window" data-id="python">
+        <div class="w-12 h-12 rounded-xl bg-blue-500 flex items-center justify-center text-2xl">
+            <i class="fa fa-code"></i>
+        </div>
+        <span class="text-xs mt-1">Python编辑器</span>
+    </div>
     <div class="flex flex-col items-center w-16 cursor-pointer open-window" data-id="terminal">
         <div class="w-12 h-12 rounded-xl bg-black flex items-center justify-center text-2xl text-green-400">
             <i class="fa fa-terminal"></i>
@@ -152,8 +150,8 @@
 <!-- 窗口容器 -->
 <div id="windows-box"></div>
 
-<!-- 底部Dock栏 -->
-<div id="dockBar" class="fixed bottom-3 left-1/2 -translate-x-1/2 glass bg-macGlass rounded-2xl px-2 py-2 flex gap-1 md:gap-2 z-40 hidden">
+<!-- 底部Dock栏（新增Python编辑器入口） -->
+<div id="dockBar" class="fixed bottom-3 left-1/2 -translate-x-1/2 glass bg-macGlass rounded-2xl px-2 py-2 flex gap-1 md:gap-2 z-40">
     <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-yellow-500/80 flex items-center justify-center text-xl cursor-pointer open-window" data-id="finder">
         <i class="fa fa-folder"></i>
     </div>
@@ -165,6 +163,10 @@
     </div>
     <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-gray-600 flex items-center justify-center text-xl cursor-pointer open-window" data-id="calc">
         <i class="fa fa-calculator"></i>
+    </div>
+    <!-- Python Dock图标 -->
+    <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-blue-500 flex items-center justify-center text-xl cursor-pointer open-window" data-id="python">
+        <i class="fa fa-code"></i>
     </div>
     <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-black flex items-center justify-center text-xl text-green-400 cursor-pointer open-window" data-id="terminal">
         <i class="fa fa-terminal"></i>
@@ -185,31 +187,51 @@
 </div>
 
 <script>
-const startScreen = document.getElementById('startScreen');
-const loadBar = document.getElementById('loadBar');
-let progress = 0;
-let loadTimer = setInterval(()=>{
-    progress += Math.random()*2.5;
-    if(progress >= 100){
-        finishLoad();
+// Python运行实例
+let pyodide = null;
+async function loadPyodideRuntime() {
+    if (!pyodide) {
+        pyodide = await loadPyodide();
     }
-    loadBar.style.width = progress + '%';
-},80)
+    return pyodide;
+}
 
-// 兜底超时：5秒强制结束加载，防止卡死
-setTimeout(finishLoad, 5000);
+// 运行Python代码
+async function runPythonCode() {
+    const codeInput = document.getElementById('pyCode');
+    const outputBox = document.getElementById('pyOutput');
+    const code = codeInput.value;
+    outputBox.textContent = "正在加载Python环境并运行...\n";
+    try {
+        const py = await loadPyodideRuntime();
+        // 捕获print输出
+        py.runPython(`
+import sys
+from io import StringIO
+sys.stdout = captured_output = StringIO()
+`);
+        py.runPython(code);
+        const result = py.runPython("captured_output.getvalue()");
+        outputBox.textContent = "运行结果：\n" + result;
+    } catch (err) {
+        outputBox.textContent = "报错信息：\n" + err;
+    }
+}
 
-// 结束加载公共函数（按钮也可调用）
-function finishLoad(){
-    clearInterval(loadTimer);
-    progress = 100;
-    loadBar.style.width = '100%';
-    setTimeout(()=>{
-        startScreen.classList.add('hidden');
-        document.getElementById('topBar').classList.remove('hidden');
-        document.getElementById('desktopIcons').classList.remove('hidden');
-        document.getElementById('dockBar').classList.remove('hidden');
-    },300)
+// 清空代码编辑器
+function clearPyEditor() {
+    document.getElementById('pyCode').value = "";
+    document.getElementById('pyOutput').textContent = "运行输出会展示在这里...";
+}
+
+// 保存代码到本地下载
+function savePyFile() {
+    const code = document.getElementById('pyCode').value;
+    const blob = new Blob([code], {type: "text/plain"});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = "code.py";
+    a.click();
 }
 
 // 顶部时间
@@ -253,7 +275,7 @@ document.addEventListener('click',()=> contextMenu.style.display = 'none');
 function refreshDesktop(){ location.reload(); }
 function openWallpaperPanel(){ wallPanel.classList.remove('hidden'); }
 
-// 所有应用窗口内容配置
+// 所有应用窗口内容配置（新增Python编辑器配置）
 const winContent = {
     finder: {
         title: "访达 - 我的文件",
@@ -325,6 +347,29 @@ const winContent = {
         title: "文本编辑",
         html: `<textarea class="w-full h-[440px] bg-white text-black p-3 outline-none resize-none" placeholder="纯文本文档，开始输入内容..."></textarea>`
     },
+    // 新增Python编程编辑器窗口
+    python: {
+        title: "Python 代码编辑器",
+        html: `
+        <div class="flex flex-col h-[440px]">
+            <div class="flex gap-2 p-2 border-b border-white/20">
+                <button onclick="runPythonCode()" class="bg-green-600 px-3 py-1 rounded text-sm">▶ 运行编译</button>
+                <button onclick="clearPyEditor()" class="bg-gray-600 px-3 py-1 rounded text-sm">清空</button>
+                <button onclick="savePyFile()" class="bg-blue-600 px-3 py-1 rounded text-sm">保存为.py文件</button>
+            </div>
+            <textarea id="pyCode" class="flex-1 bg-gray-900 p-3 outline-none resize-none font-mono text-sm" placeholder='# 在这里写Python代码
+# 示例:
+print("Hello Python!")
+a = 1+2
+print(a)'># 示例代码
+print("Hello World!")
+</textarea>
+            <div class="h-[120px] border-t border-white/20 p-2 overflow-auto bg-black/60">
+                <div id="pyOutput" class="text-green-400 font-mono text-sm">运行输出会展示在这里...</div>
+            </div>
+        </div>
+        `
+    },
     terminal: {
         title: "终端",
         html: `
@@ -393,50 +438,4 @@ function calcNum(n){
 }
 function calcClear(){
     calcVal = "";
-    document.getElementById('calcInput').value = "0";
-}
-function calcResult(){
-    try{
-        let res = eval(calcVal);
-        document.getElementById('calcInput').value = res;
-        calcVal = String(res);
-    }catch{
-        document.getElementById('calcInput').value = "错误";
-        calcVal = "";
-    }
-}
-
-// 终端回车命令
-function termEnter(e){
-    if(e.key !== 'Enter') return;
-    const input = document.getElementById('termInput');
-    const log = document.getElementById('termLog');
-    const cmd = input.value;
-    log.innerHTML += `hins@mac ~ % ${cmd}\n`;
-    // 简单内置命令
-    if(cmd === "ls") log.innerHTML += "Desktop  Downloads  Documents\n";
-    else if(cmd === "pwd") log.innerHTML += "/Users/hins\n";
-    else if(cmd === "clear") log.innerHTML = "";
-    else if(cmd) log.innerHTML += "命令未识别\n";
-    input.value = "";
-    log.scrollTop = log.scrollHeight;
-}
-
-// 创建可拖拽+缩放窗口
-let winIndex = 0;
-const winBox = document.getElementById('windows-box');
-document.querySelectorAll('.open-window').forEach(item=>{
-    item.onclick = ()=>{
-        const id = item.dataset.id;
-        const data = winContent[id];
-        winIndex++;
-        const win = document.createElement('div');
-        win.className = "absolute w-[650px] max-w-[95vw] rounded-xl glass bg-macDarkGlass overflow-hidden shadow-2xl";
-        win.style.left = 120 + winIndex*30 + 'px';
-        win.style.top = 80 + winIndex*30 + 'px';
-        win.style.zIndex = winIndex;
-        win.innerHTML = `
-        <div class="window-drag h-8 bg-black/30 flex items-center px-3 gap-2">
-            <div class="flex gap-1.5">
-                <button class="close-win w-3 h-3 rounded-full bg-red-500"></button>
-               
+    document.getElementById('calcIn
