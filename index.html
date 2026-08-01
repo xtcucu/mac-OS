@@ -2,7 +2,8 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- 移动端强制缩放适配 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>macOS WebOS | HINS</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css">
@@ -51,6 +52,8 @@
         <div id="loadBar" class="h-full bg-white w-0 transition-all duration-75"></div>
     </div>
     <p class="mt-4 text-sm opacity-70">正在启动 HINS macOS Web System...</p>
+    <!-- 紧急跳过按钮，卡死可点 -->
+    <button onclick="finishLoad()" class="mt-4 text-xs opacity-50">点击跳过启动页</button>
 </div>
 
 <!-- 桌面右键菜单 -->
@@ -61,7 +64,7 @@
 </div>
 
 <!-- 壁纸选择弹窗 -->
-<div id="wallPanel" class="fixed hidden w-[400px] glass bg-macDarkGlass rounded-xl p-4 z-[9998]">
+<div id="wallPanel" class="fixed hidden w-[400px] max-w-[90vw] glass bg-macDarkGlass rounded-xl p-4 z-[9998]">
     <div class="flex justify-between items-center mb-3">
         <span>选择壁纸</span>
         <button onclick="wallPanel.classList.add('hidden')">✕</button>
@@ -89,7 +92,7 @@
 </div>
 
 <!-- 桌面右侧图标 -->
-<div id="desktopIcons" class="absolute top-10 right-6 flex flex-col gap-4 hidden">
+<div id="desktopIcons" class="absolute top-10 right-2 md:right-6 flex flex-col gap-4 hidden">
     <div class="flex flex-col items-center w-16 cursor-pointer open-window" data-id="finder">
         <div class="w-12 h-12 rounded-xl bg-yellow-500/80 flex items-center justify-center text-2xl">
             <i class="fa fa-folder-open"></i>
@@ -150,56 +153,64 @@
 <div id="windows-box"></div>
 
 <!-- 底部Dock栏 -->
-<div id="dockBar" class="fixed bottom-3 left-1/2 -translate-x-1/2 glass bg-macGlass rounded-2xl px-3 py-2 flex gap-2 z-40 hidden">
-    <div class="dock-item w-11 h-11 rounded-xl bg-yellow-500/80 flex items-center justify-center text-xl cursor-pointer open-window" data-id="finder">
+<div id="dockBar" class="fixed bottom-3 left-1/2 -translate-x-1/2 glass bg-macGlass rounded-2xl px-2 py-2 flex gap-1 md:gap-2 z-40 hidden">
+    <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-yellow-500/80 flex items-center justify-center text-xl cursor-pointer open-window" data-id="finder">
         <i class="fa fa-folder"></i>
     </div>
-    <div class="dock-item w-11 h-11 rounded-xl bg-blue-600 flex items-center justify-center text-xl cursor-pointer open-window" data-id="safari">
+    <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-blue-600 flex items-center justify-center text-xl cursor-pointer open-window" data-id="safari">
         <i class="fa fa-safari"></i>
     </div>
-    <div class="dock-item w-11 h-11 rounded-xl bg-yellow-400 flex items-center justify-center text-xl text-black cursor-pointer open-window" data-id="notes">
+    <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-yellow-400 flex items-center justify-center text-xl text-black cursor-pointer open-window" data-id="notes">
         <i class="fa fa-sticky-note"></i>
     </div>
-    <div class="dock-item w-11 h-11 rounded-xl bg-gray-600 flex items-center justify-center text-xl cursor-pointer open-window" data-id="calc">
+    <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-gray-600 flex items-center justify-center text-xl cursor-pointer open-window" data-id="calc">
         <i class="fa fa-calculator"></i>
     </div>
-    <div class="dock-item w-11 h-11 rounded-xl bg-black flex items-center justify-center text-xl text-green-400 cursor-pointer open-window" data-id="terminal">
+    <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-black flex items-center justify-center text-xl text-green-400 cursor-pointer open-window" data-id="terminal">
         <i class="fa fa-terminal"></i>
     </div>
-    <div class="dock-item w-11 h-11 rounded-xl bg-pink-500 flex items-center justify-center text-xl cursor-pointer open-window" data-id="photos">
+    <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-pink-500 flex items-center justify-center text-xl cursor-pointer open-window" data-id="photos">
         <i class="fa fa-picture-o"></i>
     </div>
-    <div class="dock-item w-11 h-11 rounded-xl bg-red-500 flex items-center justify-center text-xl cursor-pointer open-window" data-id="music">
+    <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-red-500 flex items-center justify-center text-xl cursor-pointer open-window" data-id="music">
         <i class="fa fa-music"></i>
     </div>
-    <div class="dock-item w-11 h-11 rounded-xl bg-slate-500 flex items-center justify-center text-xl cursor-pointer open-window" data-id="setting">
+    <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-slate-500 flex items-center justify-center text-xl cursor-pointer open-window" data-id="setting">
         <i class="fa fa-cog"></i>
     </div>
     <div class="w-[1px] h-8 bg-white/30 mx-1"></div>
-    <div class="dock-item w-11 h-11 rounded-xl bg-red-500 flex items-center justify-center text-xl cursor-pointer" onclick="closeAllWin()">
+    <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-red-500 flex items-center justify-center text-xl cursor-pointer" onclick="closeAllWin()">
         <i class="fa fa-power-off"></i>
     </div>
 </div>
 
 <script>
-// 开机加载动画
 const startScreen = document.getElementById('startScreen');
 const loadBar = document.getElementById('loadBar');
 let progress = 0;
-const loadTimer = setInterval(()=>{
-    progress += Math.random()*3;
+let loadTimer = setInterval(()=>{
+    progress += Math.random()*2.5;
     if(progress >= 100){
-        progress = 100;
-        clearInterval(loadTimer);
-        setTimeout(()=>{
-            startScreen.classList.add('hidden');
-            document.getElementById('topBar').classList.remove('hidden');
-            document.getElementById('desktopIcons').classList.remove('hidden');
-            document.getElementById('dockBar').classList.remove('hidden');
-        },300)
+        finishLoad();
     }
     loadBar.style.width = progress + '%';
 },80)
+
+// 兜底超时：5秒强制结束加载，防止卡死
+setTimeout(finishLoad, 5000);
+
+// 结束加载公共函数（按钮也可调用）
+function finishLoad(){
+    clearInterval(loadTimer);
+    progress = 100;
+    loadBar.style.width = '100%';
+    setTimeout(()=>{
+        startScreen.classList.add('hidden');
+        document.getElementById('topBar').classList.remove('hidden');
+        document.getElementById('desktopIcons').classList.remove('hidden');
+        document.getElementById('dockBar').classList.remove('hidden');
+    },300)
+}
 
 // 顶部时间
 function updateTime(){
@@ -420,7 +431,7 @@ document.querySelectorAll('.open-window').forEach(item=>{
         const data = winContent[id];
         winIndex++;
         const win = document.createElement('div');
-        win.className = "absolute w-[650px] rounded-xl glass bg-macDarkGlass overflow-hidden shadow-2xl";
+        win.className = "absolute w-[650px] max-w-[95vw] rounded-xl glass bg-macDarkGlass overflow-hidden shadow-2xl";
         win.style.left = 120 + winIndex*30 + 'px';
         win.style.top = 80 + winIndex*30 + 'px';
         win.style.zIndex = winIndex;
@@ -428,17 +439,4 @@ document.querySelectorAll('.open-window').forEach(item=>{
         <div class="window-drag h-8 bg-black/30 flex items-center px-3 gap-2">
             <div class="flex gap-1.5">
                 <button class="close-win w-3 h-3 rounded-full bg-red-500"></button>
-                <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
-                <div class="w-3 h-3 rounded-full bg-green-500"></div>
-            </div>
-            <span class="text-xs ml-2">${data.title}</span>
-        </div>
-        <div class="overflow-auto">${data.html}</div>
-        <div class="resize-handle"></div>
-        `
-        winBox.appendChild(win);
-
-        // 关闭按钮
-        win.querySelector('.close-win').onclick = (e)=>{
-            e.stopPropagation();
-      
+               
