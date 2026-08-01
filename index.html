@@ -1,11 +1,444 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>我的项目分站</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>macOS WebOS | HINS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css">
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        macTop: 'rgba(30,30,30,0.75)',
+                        macGlass: 'rgba(255,255,255,0.15)',
+                        macDarkGlass: 'rgba(20,20,25,0.4)',
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .glass {
+                backdrop-filter: blur(16px) saturate(180%);
+                -webkit-backdrop-filter: blur(16px) saturate(180%);
+            }
+            .window-drag { cursor: move; }
+            .dock-item { transition: all 0.2s ease; }
+            .dock-item:hover { transform: translateY(-8px) scale(1.15); }
+            .start-screen { backdrop-filter: blur(8px); }
+            .resize-handle { width:10px; height:10px; position:absolute; right:0; bottom:0; cursor:nwse-resize; z-index:10; }
+        }
+        body {
+            background: url('https://img1.baidu.com/it/u=123124125,3802562127&fm=253&fmt=auto&app=138&f=JPEG?w=1920&h=1080') no-repeat center;
+            background-size: cover;
+            height: 100vh;
+            overflow: hidden;
+        }
+        .dark body { background: #0c0c10; }
+        #contextMenu { display: none; z-index:99999; }
+    </style>
 </head>
-<body>
-    <h1>这是我的GitHub项目子网站</h1>
-    <p>网址：用户名.github.io/仓库名</p>
-</body>
-</html>
+<body class="dark text-white overflow-hidden select-none" id="desktop">
+
+<!-- 开机启动画面 -->
+<div id="startScreen" class="fixed inset-0 bg-black start-screen flex flex-col items-center justify-center z-[9999]">
+    <i class="fa fa-apple text-white text-7xl mb-6 animate-pulse"></i>
+    <div class="w-48 h-1 bg-gray-700 rounded-full overflow-hidden">
+        <div id="loadBar" class="h-full bg-white w-0 transition-all duration-75"></div>
+    </div>
+    <p class="mt-4 text-sm opacity-70">正在启动 HINS macOS Web System...</p>
+</div>
+
+<!-- 桌面右键菜单 -->
+<div id="contextMenu" class="fixed glass bg-black/70 rounded-lg py-2 px-2 text-sm w-36">
+    <div class="px-2 py-1 hover:bg-white/20 rounded cursor-pointer" onclick="refreshDesktop()">刷新桌面</div>
+    <div class="px-2 py-1 hover:bg-white/20 rounded cursor-pointer" onclick="openWallpaperPanel()">更换壁纸</div>
+    <div class="px-2 py-1 hover:bg-white/20 rounded cursor-pointer" onclick="closeAllWin()">关闭所有窗口</div>
+</div>
+
+<!-- 壁纸选择弹窗 -->
+<div id="wallPanel" class="fixed hidden w-[400px] glass bg-macDarkGlass rounded-xl p-4 z-[9998]">
+    <div class="flex justify-between items-center mb-3">
+        <span>选择壁纸</span>
+        <button onclick="wallPanel.classList.add('hidden')">✕</button>
+    </div>
+    <div class="grid grid-cols-2 gap-2">
+        <button class="p-2 border rounded hover:bg-white/10" onclick="setWall(1)">默认mac壁纸</button>
+        <button class="p-2 border rounded hover:bg-white/10" onclick="setWall(2)">星空黑壁纸</button>
+        <button class="p-2 border rounded hover:bg-white/10" onclick="setWall(3)">海边风景</button>
+        <button class="p-2 border rounded hover:bg-white/10" onclick="setWall(4)">纯色深色</button>
+    </div>
+</div>
+
+<!-- 顶部菜单栏 -->
+<div id="topBar" class="fixed top-0 left-0 right-0 h-7 bg-macTop glass flex items-center justify-between px-4 z-50 hidden">
+    <div class="flex gap-4 items-center">
+        <i class="fa fa-apple text-lg"></i>
+        <span class="text-sm font-medium">HINS-MacOS</span>
+        <span class="text-xs opacity-70">文件 编辑 显示 前往</span>
+    </div>
+    <div class="flex gap-3 text-sm items-center">
+        <button id="wallBtn" class="hover:text-gray-300">更换壁纸</button>
+        <button id="themeBtn"><i class="fa fa-moon-o"></i></button>
+        <span id="time"></span>
+    </div>
+</div>
+
+<!-- 桌面右侧图标 -->
+<div id="desktopIcons" class="absolute top-10 right-6 flex flex-col gap-4 hidden">
+    <div class="flex flex-col items-center w-16 cursor-pointer open-window" data-id="finder">
+        <div class="w-12 h-12 rounded-xl bg-yellow-500/80 flex items-center justify-center text-2xl">
+            <i class="fa fa-folder-open"></i>
+        </div>
+        <span class="text-xs mt-1">访达</span>
+    </div>
+    <div class="flex flex-col items-center w-16 cursor-pointer open-window" data-id="safari">
+        <div class="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center text-2xl">
+            <i class="fa fa-safari"></i>
+        </div>
+        <span class="text-xs mt-1">Safari</span>
+    </div>
+    <div class="flex flex-col items-center w-16 cursor-pointer open-window" data-id="notes">
+        <div class="w-12 h-12 rounded-xl bg-yellow-400 flex items-center justify-center text-2xl text-black">
+            <i class="fa fa-sticky-note"></i>
+        </div>
+        <span class="text-xs mt-1">备忘录</span>
+    </div>
+    <div class="flex flex-col items-center w-16 cursor-pointer open-window" data-id="calc">
+        <div class="w-12 h-12 rounded-xl bg-gray-600 flex items-center justify-center text-2xl">
+            <i class="fa fa-calculator"></i>
+        </div>
+        <span class="text-xs mt-1">计算器</span>
+    </div>
+    <div class="flex flex-col items-center w-16 cursor-pointer open-window" data-id="textedit">
+        <div class="w-12 h-12 rounded-xl bg-white flex items-center justify-center text-2xl text-gray-800">
+            <i class="fa fa-file-text-o"></i>
+        </div>
+        <span class="text-xs mt-1">文本编辑</span>
+    </div>
+    <div class="flex flex-col items-center w-16 cursor-pointer open-window" data-id="terminal">
+        <div class="w-12 h-12 rounded-xl bg-black flex items-center justify-center text-2xl text-green-400">
+            <i class="fa fa-terminal"></i>
+        </div>
+        <span class="text-xs mt-1">终端</span>
+    </div>
+    <div class="flex flex-col items-center w-16 cursor-pointer open-window" data-id="photos">
+        <div class="w-12 h-12 rounded-xl bg-pink-500 flex items-center justify-center text-2xl">
+            <i class="fa fa-picture-o"></i>
+        </div>
+        <span class="text-xs mt-1">照片</span>
+    </div>
+    <div class="flex flex-col items-center w-16 cursor-pointer open-window" data-id="music">
+        <div class="w-12 h-12 rounded-xl bg-red-500 flex items-center justify-center text-2xl">
+            <i class="fa fa-music"></i>
+        </div>
+        <span class="text-xs mt-1">音乐</span>
+    </div>
+    <div class="flex flex-col items-center w-16 cursor-pointer open-window" data-id="setting">
+        <div class="w-12 h-12 rounded-xl bg-slate-500 flex items-center justify-center text-2xl">
+            <i class="fa fa-cog"></i>
+        </div>
+        <span class="text-xs mt-1">系统设置</span>
+    </div>
+</div>
+
+<!-- 窗口容器 -->
+<div id="windows-box"></div>
+
+<!-- 底部Dock栏 -->
+<div id="dockBar" class="fixed bottom-3 left-1/2 -translate-x-1/2 glass bg-macGlass rounded-2xl px-3 py-2 flex gap-2 z-40 hidden">
+    <div class="dock-item w-11 h-11 rounded-xl bg-yellow-500/80 flex items-center justify-center text-xl cursor-pointer open-window" data-id="finder">
+        <i class="fa fa-folder"></i>
+    </div>
+    <div class="dock-item w-11 h-11 rounded-xl bg-blue-600 flex items-center justify-center text-xl cursor-pointer open-window" data-id="safari">
+        <i class="fa fa-safari"></i>
+    </div>
+    <div class="dock-item w-11 h-11 rounded-xl bg-yellow-400 flex items-center justify-center text-xl text-black cursor-pointer open-window" data-id="notes">
+        <i class="fa fa-sticky-note"></i>
+    </div>
+    <div class="dock-item w-11 h-11 rounded-xl bg-gray-600 flex items-center justify-center text-xl cursor-pointer open-window" data-id="calc">
+        <i class="fa fa-calculator"></i>
+    </div>
+    <div class="dock-item w-11 h-11 rounded-xl bg-black flex items-center justify-center text-xl text-green-400 cursor-pointer open-window" data-id="terminal">
+        <i class="fa fa-terminal"></i>
+    </div>
+    <div class="dock-item w-11 h-11 rounded-xl bg-pink-500 flex items-center justify-center text-xl cursor-pointer open-window" data-id="photos">
+        <i class="fa fa-picture-o"></i>
+    </div>
+    <div class="dock-item w-11 h-11 rounded-xl bg-red-500 flex items-center justify-center text-xl cursor-pointer open-window" data-id="music">
+        <i class="fa fa-music"></i>
+    </div>
+    <div class="dock-item w-11 h-11 rounded-xl bg-slate-500 flex items-center justify-center text-xl cursor-pointer open-window" data-id="setting">
+        <i class="fa fa-cog"></i>
+    </div>
+    <div class="w-[1px] h-8 bg-white/30 mx-1"></div>
+    <div class="dock-item w-11 h-11 rounded-xl bg-red-500 flex items-center justify-center text-xl cursor-pointer" onclick="closeAllWin()">
+        <i class="fa fa-power-off"></i>
+    </div>
+</div>
+
+<script>
+// 开机加载动画
+const startScreen = document.getElementById('startScreen');
+const loadBar = document.getElementById('loadBar');
+let progress = 0;
+const loadTimer = setInterval(()=>{
+    progress += Math.random()*3;
+    if(progress >= 100){
+        progress = 100;
+        clearInterval(loadTimer);
+        setTimeout(()=>{
+            startScreen.classList.add('hidden');
+            document.getElementById('topBar').classList.remove('hidden');
+            document.getElementById('desktopIcons').classList.remove('hidden');
+            document.getElementById('dockBar').classList.remove('hidden');
+        },300)
+    }
+    loadBar.style.width = progress + '%';
+},80)
+
+// 顶部时间
+function updateTime(){
+    const now = new Date();
+    document.getElementById('time').innerText = now.toLocaleString('zh-CN');
+}
+setInterval(updateTime,1000);
+updateTime();
+
+// 明暗主题切换
+const html = document.documentElement;
+document.getElementById('themeBtn').onclick = ()=> html.classList.toggle('dark');
+
+// 壁纸切换
+const wallPanel = document.getElementById('wallPanel');
+document.getElementById('wallBtn').onclick = ()=> wallPanel.classList.remove('hidden');
+function setWall(type){
+    const body = document.body;
+    const walls = {
+        1: 'https://img1.baidu.com/it/u=123124125,3802562127&fm=253&fmt=auto&app=138&f=JPEG?w=1920&h=1080',
+        2: 'https://img2.baidu.com/it/u=3942215232,3080712131&fm=253&fmt=auto',
+        3: 'https://img2.baidu.com/it/u=2956342135,386234127&fm=253&fmt=auto',
+        4: ''
+    }
+    if(type ===4) body.style.background = '#111118';
+    else body.style.background = `url(${walls[type]}) center/cover no-repeat`;
+    wallPanel.classList.add('hidden');
+}
+
+// 桌面右键菜单
+const contextMenu = document.getElementById('contextMenu');
+const desktop = document.getElementById('desktop');
+desktop.oncontextmenu = (e)=>{
+    e.preventDefault();
+    contextMenu.style.left = e.pageX + 'px';
+    contextMenu.style.top = e.pageY + 'px';
+    contextMenu.style.display = 'block';
+}
+document.addEventListener('click',()=> contextMenu.style.display = 'none');
+function refreshDesktop(){ location.reload(); }
+function openWallpaperPanel(){ wallPanel.classList.remove('hidden'); }
+
+// 所有应用窗口内容配置
+const winContent = {
+    finder: {
+        title: "访达 - 我的文件",
+        html: `
+        <div class="flex h-[420px]">
+            <div class="w-1/4 bg-white/10 p-2">
+                <div class="py-1 opacity-80">个人收藏</div>
+                <div class="py-1 hover:bg-white/10 px-2 rounded cursor-pointer">桌面</div>
+                <div class="py-1 hover:bg-white/10 px-2 rounded cursor-pointer">下载项</div>
+                <div class="py-1 hover:bg-white/10 px-2 rounded cursor-pointer">文稿</div>
+            </div>
+            <div class="flex-1 p-4 grid grid-cols-3 gap-3 text-center">
+                <div class="p-2 hover:bg-white/10 rounded cursor-pointer"><i class="fa fa-file-code-o text-2xl"></i><p class="text-xs mt-1">main.cpp</p></div>
+                <div class="p-2 hover:bg-white/10 rounded cursor-pointer"><i class="fa fa-file-text-o text-2xl"></i><p class="text-xs mt-1">笔记.txt</p></div>
+                <div class="p-2 hover:bg-white/10 rounded cursor-pointer"><i class="fa fa-folder text-2xl"></i><p class="text-xs mt-1">项目文件夹</p></div>
+            </div>
+        </div>`
+    },
+    safari: {
+        title: "Safari 浏览器",
+        html: `
+        <div class="p-2 flex gap-2 items-center border-b border-white/20">
+            <button class="px-2">←</button><button class="px-2">→</button>
+            <input id="urlInput" class="flex-1 bg-white/10 rounded px-2 py-1 text-sm outline-none" value="https://www.baidu.com" placeholder="输入网址">
+            <button onclick="openUrl()" class="bg-blue-600 px-3 py-1 rounded text-sm">前往</button>
+        </div>
+        <iframe id="webFrame" src="https://www.baidu.com" class="w-full h-[420px] border-none bg-white"></iframe>
+        `
+    },
+    notes: {
+        title: "备忘录",
+        html: `
+        <textarea class="w-full h-[440px] bg-transparent p-3 outline-none resize-none" placeholder="在这里输入笔记内容...
+示例：
+1. 学习C++
+2. 完善macOS网页系统
+3. 拍摄手机实拍照片"></textarea>`
+    },
+    calc: {
+        title: "计算器",
+        html: `
+        <div class="p-3 w-[260px] mx-auto">
+            <input id="calcInput" readonly class="w-full bg-white/10 text-right p-2 text-xl rounded mb-2" value="0">
+            <div class="grid grid-cols-4 gap-2">
+                <button onclick="calcNum('7')" class="p-2 bg-white/10 rounded hover:bg-white/20">7</button>
+                <button onclick="calcNum('8')" class="p-2 bg-white/10 rounded hover:bg-white/20">8</button>
+                <button onclick="calcNum('9')" class="p-2 bg-white/10 rounded hover:bg-white/20">9</button>
+                <button onclick="calcNum('/')" class="p-2 bg-orange-500/70 rounded">÷</button>
+
+                <button onclick="calcNum('4')" class="p-2 bg-white/10 rounded hover:bg-white/20">4</button>
+                <button onclick="calcNum('5')" class="p-2 bg-white/10 rounded hover:bg-white/20">5</button>
+                <button onclick="calcNum('6')" class="p-2 bg-white/10 rounded hover:bg-white/20">6</button>
+                <button onclick="calcNum('*')" class="p-2 bg-orange-500/70 rounded">×</button>
+
+                <button onclick="calcNum('1')" class="p-2 bg-white/10 rounded hover:bg-white/20">1</button>
+                <button onclick="calcNum('2')" class="p-2 bg-white/10 rounded hover:bg-white/20">2</button>
+                <button onclick="calcNum('3')" class="p-2 bg-white/10 rounded hover:bg-white/20">3</button>
+                <button onclick="calcNum('-')" class="p-2 bg-orange-500/70 rounded">-</button>
+
+                <button onclick="calcClear()" class="p-2 bg-gray-500/70 rounded">C</button>
+                <button onclick="calcNum('0')" class="p-2 bg-white/10 rounded hover:bg-white/20">0</button>
+                <button onclick="calcNum('.')" class="p-2 bg-white/10 rounded hover:bg-white/20">.</button>
+                <button onclick="calcResult()" class="p-2 bg-orange-500/70 rounded">=</button>
+                <button onclick="calcNum('+')" class="col-span-4 p-2 bg-orange-500/70 rounded">+</button>
+            </div>
+        </div>`
+    },
+    textedit: {
+        title: "文本编辑",
+        html: `<textarea class="w-full h-[440px] bg-white text-black p-3 outline-none resize-none" placeholder="纯文本文档，开始输入内容..."></textarea>`
+    },
+    terminal: {
+        title: "终端",
+        html: `
+        <div class="p-3 bg-black h-[440px] text-green-400 font-mono text-sm overflow-auto">
+            <div id="termLog"></div>
+            <div class="flex items-center">
+                <span>hins@mac ~ % </span>
+                <input id="termInput" class="flex-1 bg-transparent outline-none ml-1" onkeydown="termEnter(event)">
+            </div>
+        </div>`
+    },
+    photos: {
+        title: "照片",
+        html: `
+        <div class="p-4 grid grid-cols-4 gap-2">
+            <div class="h-20 bg-pink-700/60 rounded"></div>
+            <div class="h-20 bg-blue-700/60 rounded"></div>
+            <div class="h-20 bg-green-700/60 rounded"></div>
+            <div class="h-20 bg-yellow-700/60 rounded"></div>
+            <div class="h-20 bg-red-700/60 rounded"></div>
+            <div class="h-20 bg-indigo-700/60 rounded"></div>
+            <div class="h-20 bg-cyan-700/60 rounded"></div>
+            <div class="h-20 bg-orange-700/60 rounded"></div>
+        </div>`
+    },
+    music: {
+        title: "音乐",
+        html: `
+        <div class="p-4 text-center">
+            <i class="fa fa-music text-6xl text-red-500 my-6"></i>
+            <p class="opacity-70">模拟Apple Music界面</p>
+            <p class="text-sm mt-2">暂无播放歌曲，可后续添加播放功能</p>
+        </div>`
+    },
+    setting: {
+        title: "系统设置",
+        html: `
+        <div class="flex h-[420px]">
+            <div class="w-1/4 bg-white/10 p-2 text-sm">
+                <div class="py-2 hover:bg-white/10 px-2 rounded cursor-pointer">外观</div>
+                <div class="py-2 hover:bg-white/10 px-2 rounded cursor-pointer">墙纸</div>
+                <div class="py-2 hover:bg-white/10 px-2 rounded cursor-pointer">显示器</div>
+                <div class="py-2 hover:bg-white/10 px-2 rounded cursor-pointer">网络</div>
+                <div class="py-2 hover:bg-white/10 px-2 rounded cursor-pointer">蓝牙</div>
+                <div class="py-2 hover:bg-white/10 px-2 rounded cursor-pointer">用户与群组</div>
+            </div>
+            <div class="flex-1 p-4 opacity-70">点击左侧选项查看设置详情</div>
+        </div>`
+    }
+};
+
+// Safari跳转网址
+function openUrl(){
+    const input = document.getElementById('urlInput');
+    const frame = document.getElementById('webFrame');
+    let url = input.value.trim();
+    if(!url.startsWith('http')) url = 'https://' + url;
+    frame.src = url;
+}
+
+// 计算器逻辑
+let calcVal = "";
+function calcNum(n){
+    calcVal += n;
+    document.getElementById('calcInput').value = calcVal;
+}
+function calcClear(){
+    calcVal = "";
+    document.getElementById('calcInput').value = "0";
+}
+function calcResult(){
+    try{
+        let res = eval(calcVal);
+        document.getElementById('calcInput').value = res;
+        calcVal = String(res);
+    }catch{
+        document.getElementById('calcInput').value = "错误";
+        calcVal = "";
+    }
+}
+
+// 终端回车命令
+function termEnter(e){
+    if(e.key !== 'Enter') return;
+    const input = document.getElementById('termInput');
+    const log = document.getElementById('termLog');
+    const cmd = input.value;
+    log.innerHTML += `hins@mac ~ % ${cmd}\n`;
+    // 简单内置命令
+    if(cmd === "ls") log.innerHTML += "Desktop  Downloads  Documents\n";
+    else if(cmd === "pwd") log.innerHTML += "/Users/hins\n";
+    else if(cmd === "clear") log.innerHTML = "";
+    else if(cmd) log.innerHTML += "命令未识别\n";
+    input.value = "";
+    log.scrollTop = log.scrollHeight;
+}
+
+// 创建可拖拽+缩放窗口
+let winIndex = 0;
+const winBox = document.getElementById('windows-box');
+document.querySelectorAll('.open-window').forEach(item=>{
+    item.onclick = ()=>{
+        const id = item.dataset.id;
+        const data = winContent[id];
+        winIndex++;
+        const win = document.createElement('div');
+        win.className = "absolute w-[650px] rounded-xl glass bg-macDarkGlass overflow-hidden shadow-2xl";
+        win.style.left = 120 + winIndex*30 + 'px';
+        win.style.top = 80 + winIndex*30 + 'px';
+        win.style.zIndex = winIndex;
+        win.innerHTML = `
+        <div class="window-drag h-8 bg-black/30 flex items-center px-3 gap-2">
+            <div class="flex gap-1.5">
+                <button class="close-win w-3 h-3 rounded-full bg-red-500"></button>
+                <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+                <div class="w-3 h-3 rounded-full bg-green-500"></div>
+            </div>
+            <span class="text-xs ml-2">${data.title}</span>
+        </div>
+        <div class="overflow-auto">${data.html}</div>
+        <div class="resize-handle"></div>
+        `
+        winBox.appendChild(win);
+
+        // 关闭按钮
+        win.querySelector('.close-win').onclick = (e)=>{
+            e.stopPropagation();
+      
