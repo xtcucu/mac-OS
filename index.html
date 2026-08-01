@@ -3,19 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>macOS Tahoe 26.1.0 | HINS</title>
+    <title>Desktop OS Custom | Config Import&Export</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/pyodide@0.25.0/pyodide.js"></script>
     <script>
         tailwind.config = {
             darkMode: "class",
             theme: {
                 extend: {
                     colors: {
-                        glassBase: 'rgba(255,255,255,0.08)',
-                        glassDark: 'rgba(15,15,20,0.35)',
-                        glassStroke: 'rgba(255,255,255,0.12)',
+                        glass: 'rgba(255,255,255,0.1)',
+                        glassDark: 'rgba(18,18,26,0.45)',
                     }
                 }
             }
@@ -23,349 +21,329 @@
     </script>
     <style type="text/tailwindcss">
         @layer utilities {
-            /* Liquid Glass 苹果液态玻璃核心样式 动态光影折射 */
-            .liquid-glass {
-                background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04));
-                backdrop-filter: blur(22px) saturate(220%);
-                -webkit-backdrop-filter: blur(22px) saturate(220%);
-                border: 1px solid rgba(255,255,255,0.12);
-                box-shadow:
-                    0 8px 32px rgba(0,0,0,0.3),
-                    inset 0 1px 0 rgba(255,255,255,0.18),
-                    inset 0 -1px 0 rgba(0,0,0,0.1);
-                transition: all 0.3s cubic-bezier(0.2,0,0.2,1);
+            .glass-panel {
+                backdrop-filter: blur(26px) saturate(180%);
+                -webkit-backdrop-filter: blur(26px) saturate(180%);
+                background: linear-gradient(145deg, rgba(255,255,255,0.12), rgba(255,255,255,0.03));
+                border: 1px solid rgba(255,255,255,0.1);
+                box-shadow: 0 10px 40px rgba(0,0,0,0.35);
             }
-            .liquid-glass-dark {
-                background: linear-gradient(135deg, rgba(40,40,50,0.35), rgba(20,20,30,0.25));
-                backdrop-filter: blur(22px) saturate(220%);
-                -webkit-backdrop-filter: blur(22px) saturate(220%);
-                border: 1px solid rgba(255,255,255,0.08);
-                box-shadow:
-                    0 8px 32px rgba(0,0,0,0.4),
-                    inset 0 1px 0 rgba(255,255,255,0.08);
-                transition: all 0.3s cubic-bezier(0.2,0,0.2,1);
+            .glass-dark-panel {
+                backdrop-filter: blur(26px) saturate(180%);
+                -webkit-backdrop-filter: blur(26px) saturate(180%);
+                background: linear-gradient(145deg, rgba(60,60,80,0.25), rgba(10,10,20,0.5));
+                border: 1px solid rgba(255,255,255,0.07);
             }
-            .hover-liquid:hover {
-                background: linear-gradient(135deg, rgba(255,255,255,0.18), rgba(255,255,255,0.06));
-                transform: scale(1.02);
-            }
-            .window-drag { cursor: move; }
-            .dock-item { transition: all 0.25s cubic-bezier(0.2,0,0.2,1); }
-            .dock-item:hover { transform: translateY(-8px) scale(1.15); }
-            .resize-handle { width:10px; height:10px; position:absolute; right:0; bottom:0; cursor:nwse-resize; z-index:10; }
-            .menu-dropdown {
-                display: none;
-                position: absolute;
-                top: 28px;
-                left: 0;
-                @apply liquid-glass-dark rounded-lg py-1 min-w-[140px] z-[9999];
-            }
-            .menu-item {
-                padding: 7px 14px;
-                cursor: pointer;
-                font-size: 13px;
-                @apply hover-liquid;
-            }
-            .split-line { height: 1px; background: rgba(255,255,255,0.15); margin:6px 0; }
-            .menu-parent { position: relative; cursor: pointer; }
-            /* 美化滚动条 */
-            ::-webkit-scrollbar { width:6px;height:6px; }
-            ::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.2); border-radius:3px; }
-            ::-webkit-scrollbar-track { background:transparent; }
-            /* 窗口通用样式 */
-            .app-window{
-                position:absolute;
-                width:600px;height:400px;
-                @apply liquid-glass-dark rounded-xl overflow-hidden z-30;
-            }
-            .win-header{
-                height:36px;
-                @apply liquid-glass flex items-center justify-between px-3 window-drag;
-            }
+            .win-drag { cursor: move; }
+            .btn-hover { transition: 0.2s ease; }
+            .btn-hover:hover { background: rgba(255,255,255,0.15); transform: scale(1.02); }
         }
         body {
-            background: url('https://img1.baidu.com/it/u=123124125,3802562127&fm=253&fmt=auto&app=138&f=JPEG?w=1920&h=1080') no-repeat center;
-            background-size: cover;
+            background: #0b0b13 url('https://picsum.photos/id/1036/1920/1080') center/cover no-repeat;
             height: 100vh;
             overflow: hidden;
         }
-        .dark body { background: #0c0c10; }
-        #contextMenu { display: none; z-index:99999; }
-        #rotateTip { display: none; }
-        /* 隐藏原生文件选择框 */
-        #importFileInput{ display:none; }
+        ::-webkit-scrollbar { width:5px; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius:4px; }
+        #fileInput { display: none; }
     </style>
 </head>
-<body class="dark text-white overflow-hidden select-none" id="desktop">
-<!-- 隐藏导入文件input -->
-<input type="file" id="importFileInput" accept=".json">
+<body class="dark text-white overflow-hidden select-none">
+<input type="file" id="fileInput" accept=".json">
 
-<!-- 手机竖屏横屏提示弹窗 -->
-<div id="rotateTip" class="fixed inset-0 bg-black/85 z-[99999] flex flex-col items-center justify-center p-6 text-center">
-    <i class="fa fa-mobile text-6xl mb-4 animate-pulse"></i>
-    <h2 class="text-xl mb-2">建议横向旋转屏幕</h2>
-    <p class="opacity-70 mb-6">当前为手机竖屏模式，横屏后macOS Tahoe液态玻璃桌面体验更佳</p>
-    <button onclick="closeRotateTip()" class="px-6 py-2 liquid-glass rounded-lg">我知道了</button>
-</div>
-
-<!-- 桌面右键菜单 -->
-<div id="contextMenu" class="fixed liquid-glass-dark rounded-lg py-2 px-2 text-sm w-36">
-    <div class="px-2 py-1 hover-liquid rounded cursor-pointer" onclick="triggerVibrate();refreshDesktop()">刷新桌面</div>
-    <div class="px-2 py-1 hover-liquid rounded cursor-pointer" onclick="triggerVibrate();openWallpaperPanel()">更换壁纸</div>
-    <div class="px-2 py-1 hover-liquid rounded cursor-pointer" onclick="triggerVibrate();closeAllWin()">关闭所有窗口</div>
-</div>
-
-<!-- 壁纸选择弹窗 -->
-<div id="wallPanel" class="fixed hidden w-[400px] max-w-[90vw] liquid-glass-dark rounded-xl p-4 z-[9998]">
-    <div class="flex justify-between items-center mb-3">
-        <span>选择壁纸</span>
-        <button onclick="triggerVibrate();wallPanel.classList.add('hidden')">✕</button>
+<!-- 顶部状态栏 -->
+<div class="fixed top-0 left-0 right-0 h-8 glass-panel flex items-center justify-between px-5 z-50 text-sm">
+    <div class="flex gap-6 items-center">
+        <span class="font-medium cursor-pointer" id="logoBtn"><i class="fa fa-desktop mr-1"></i>System OS</span>
+        <span class="cursor-pointer" onclick="openApp('settings')">设置</span>
+        <span class="cursor-pointer" onclick="openApp('calculator')">计算器</span>
+        <span class="cursor-pointer" onclick="openApp('audio')">音频控制台</span>
     </div>
-    <div class="grid grid-cols-2 gap-2">
-        <button class="p-2 rounded liquid-glass hover-liquid" onclick="triggerVibrate();setWall(1)">默认Tahoe壁纸</button>
-        <button class="p-2 rounded liquid-glass hover-liquid" onclick="triggerVibrate();setWall(2)">深空黑壁纸</button>
-        <button class="p-2 rounded liquid-glass hover-liquid" onclick="triggerVibrate();setWall(3)">海边风景</button>
-        <button class="p-2 rounded liquid-glass hover-liquid" onclick="triggerVibrate();setWall(4)">纯深色背景</button>
-    </div>
-</div>
-
-<!-- 反馈弹窗 -->
-<div id="feedbackModal" class="fixed hidden w-[450px] max-w-[92vw] liquid-glass-dark rounded-xl p-5 z-[9999] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-    <div class="flex justify-between items-center mb-3">
-        <span class="text-lg">提交反馈与建议</span>
-        <button onclick="triggerVibrate();feedbackModal.classList.add('hidden')">✕</button>
-    </div>
-    <textarea id="feedbackText" class="w-full h-36 bg-black/40 p-3 rounded outline-none resize-none liquid-glass" placeholder="请输入BUG、功能建议、想要新增的功能..."></textarea>
-    <button onclick="triggerVibrate();submitFeedback()" class="mt-3 w-full liquid-glass py-2 rounded hover-liquid">提交反馈</button>
-</div>
-
-<!-- 顶部菜单栏（Tahoe透明菜单栏+全屏按钮） -->
-<div id="topBar" class="fixed top-0 left-0 right-0 h-7 liquid-glass flex items-center justify-between px-4 z-50 text-sm">
     <div class="flex gap-4 items-center">
-        <!-- Apple主菜单 -->
-        <div class="relative menu-parent">
-            <div id="appleBtn" class="flex items-center gap-1">
-                <i class="fa fa-apple text-lg"></i>
-            </div>
-            <div id="appleMenu" class="menu-dropdown">
-                <div class="menu-item" onclick="triggerVibrate();openAbout()">关于本机</div>
-                <div class="menu-item" onclick="triggerVibrate();openWindowById('setting')">系统设置</div>
-                <div class="split-line"></div>
-                <div class="menu-item" onclick="triggerVibrate();openFeedback()">提交反馈</div>
-                <div class="split-line"></div>
-                <div class="menu-item" onclick="triggerVibrate();refreshDesktop()">重启桌面</div>
-                <div class="menu-item" onclick="triggerVibrate();closeAllWin()">关闭全部窗口</div>
-            </div>
-        </div>
-        <div class="relative menu-parent"><span class="menu-title">文件</span>
-            <div class="menu-dropdown">
-                <div class="menu-item" onclick="triggerVibrate();openWindowById('textedit')">新建文本文件</div>
-                <div class="menu-item" onclick="triggerVibrate();openWindowById('finder')">打开访达</div>
-                <div class="split-line"></div>
-                <div class="menu-item" onclick="triggerVibrate();closeAllWin()">关闭全部窗口</div>
-            </div>
-        </div>
-        <div class="relative menu-parent"><span class="menu-title">编辑</span>
-            <div class="menu-dropdown">
-                <div class="menu-item">撤销</div><div class="menu-item">重做</div><div class="split-line"></div>
-                <div class="menu-item">复制</div><div class="menu-item">粘贴</div><div class="menu-item">全选</div>
-            </div>
-        </div>
-        <div class="relative menu-parent"><span class="menu-title">显示</span>
-            <div class="menu-dropdown">
-                <div class="menu-item" onclick="triggerVibrate();openWallpaperPanel()">更换壁纸</div>
-                <div class="menu-item" onclick="triggerVibrate();toggleDark()">切换明暗模式</div>
-                <div class="split-line"></div>
-                <div class="menu-item">放大界面</div><div class="menu-item">缩小界面</div>
-            </div>
-        </div>
-        <div class="relative menu-parent"><span class="menu-title">前往</span>
-            <div class="menu-dropdown">
-                <div class="menu-item" onclick="triggerVibrate();openWindowById('finder')">桌面</div>
-                <div class="menu-item" onclick="triggerVibrate();openWindowById('safari')">浏览器</div>
-                <div class="menu-item" onclick="triggerVibrate();openWindowById('terminal')">终端</div>
-            </div>
-        </div>
-    </div>
-    <div class="flex gap-3 items-center text-xs md:text-sm">
-        <!-- 新增全屏切换按钮 -->
-        <button id="fullscreenBtn" class="hover:text-gray-300" onclick="triggerVibrate();toggleFullscreen()" title="切换全屏">
-            <i class="fa fa-expand"></i>
-        </button>
-        <button id="wallBtn" class="hover:text-gray-300" onclick="triggerVibrate();openWallpaperPanel()">壁纸</button>
-        <button id="themeBtn" onclick="triggerVibrate();toggleDark()"><i class="fa fa-moon-o"></i></button>
-        <span id="time"></span>
-    </div>
-</div>
-
-<!-- 桌面图标 -->
-<div id="desktopIcons" class="absolute top-10 right-2 md:right-6 flex flex-col gap-4">
-    <div class="flex flex-col items-center w-16 cursor-pointer open-win-btn liquid-glass rounded-xl p-1" data-id="finder" onclick="triggerVibrate()">
-        <div class="w-12 h-12 rounded-xl bg-yellow-500/80 flex items-center justify-center text-2xl"><i class="fa fa-folder-open"></i></div>
-        <span class="text-xs mt-1">访达</span>
-    </div>
-    <div class="flex flex-col items-center w-16 cursor-pointer open-win-btn liquid-glass rounded-xl p-1" data-id="safari" onclick="triggerVibrate()">
-        <div class="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center text-2xl"><i class="fa fa-safari"></i></div>
-        <span class="text-xs mt-1">Safari</span>
-    </div>
-    <div class="flex flex-col items-center w-16 cursor-pointer open-win-btn liquid-glass rounded-xl p-1" data-id="notes" onclick="triggerVibrate()">
-        <div class="w-12 h-12 rounded-xl bg-yellow-400 flex items-center justify-center text-2xl text-black"><i class="fa fa-sticky-note"></i></div>
-        <span class="text-xs mt-1">备忘录</span>
-    </div>
-    <div class="flex flex-col items-center w-16 cursor-pointer open-win-btn liquid-glass rounded-xl p-1" data-id="calc" onclick="triggerVibrate()">
-        <div class="w-12 h-12 rounded-xl bg-gray-600 flex items-center justify-center text-2xl"><i class="fa fa-calculator"></i></div>
-        <span class="text-xs mt-1">计算器</span>
-    </div>
-    <div class="flex flex-col items-center w-16 cursor-pointer open-win-btn liquid-glass rounded-xl p-1" data-id="textedit" onclick="triggerVibrate()">
-        <div class="w-12 h-12 rounded-xl bg-white flex items-center justify-center text-2xl text-gray-800"><i class="fa fa-file-text-o"></i></div>
-        <span class="text-xs mt-1">文本编辑</span>
-    </div>
-    <div class="flex flex-col items-center w-16 cursor-pointer open-win-btn liquid-glass rounded-xl p-1" data-id="python" onclick="triggerVibrate()">
-        <div class="w-12 h-12 rounded-xl bg-blue-500 flex items-center justify-center text-2xl"><i class="fa fa-code"></i></div>
-        <span class="text-xs mt-1">Python编辑器</span>
-    </div>
-    <div class="flex flex-col items-center w-16 cursor-pointer open-win-btn liquid-glass rounded-xl p-1" data-id="terminal" onclick="triggerVibrate()">
-        <div class="w-12 h-12 rounded-xl bg-black flex items-center justify-center text-2xl text-green-400"><i class="fa fa-terminal"></i></div>
-        <span class="text-xs mt-1">终端</span>
-    </div>
-    <div class="flex flex-col items-center w-16 cursor-pointer open-win-btn liquid-glass rounded-xl p-1" data-id="photos" onclick="triggerVibrate()">
-        <div class="w-12 h-12 rounded-xl bg-pink-500 flex items-center justify-center text-2xl"><i class="fa fa-picture-o"></i></div>
-        <span class="text-xs mt-1">照片</span>
-    </div>
-    <div class="flex flex-col items-center w-16 cursor-pointer open-win-btn liquid-glass rounded-xl p-1" data-id="music" onclick="triggerVibrate()">
-        <div class="w-12 h-12 rounded-xl bg-red-500 flex items-center justify-center text-2xl"><i class="fa fa-music"></i></div>
-        <span class="text-xs mt-1">音乐</span>
-    </div>
-    <div class="flex flex-col items-center w-16 cursor-pointer open-win-btn liquid-glass rounded-xl p-1" data-id="setting" onclick="triggerVibrate()">
-        <div class="w-12 h-12 rounded-xl bg-slate-500 flex items-center justify-center text-2xl"><i class="fa fa-cog"></i></div>
-        <span class="text-xs mt-1">系统设置</span>
+        <button onclick="toggleFullscreen()"><i class="fa fa-expand"></i></button>
+        <span id="timeShow"></span>
     </div>
 </div>
 
 <!-- 窗口容器 -->
-<div id="windows-box"></div>
+<div id="windowContainer" class="w-full h-full pt-8"></div>
 
-<!-- 底部Tahoe液态玻璃Dock栏 -->
-<div id="dockBar" class="fixed bottom-3 left-1/2 -translate-x-1/2 liquid-glass rounded-2xl px-2 py-2 flex gap-1 md:gap-2 z-40">
-    <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-yellow-500/80 flex items-center justify-center text-xl cursor-pointer open-win-btn" data-id="finder" onclick="triggerVibrate()"><i class="fa fa-folder"></i></div>
-    <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-blue-600 flex items-center justify-center text-xl cursor-pointer open-win-btn" data-id="safari" onclick="triggerVibrate()"><i class="fa fa-safari"></i></div>
-    <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-yellow-400 flex items-center justify-center text-xl text-black cursor-pointer open-win-btn" data-id="notes" onclick="triggerVibrate()"><i class="fa fa-sticky-note"></i></div>
-    <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-gray-600 flex items-center justify-center text-xl cursor-pointer open-win-btn" data-id="calc" onclick="triggerVibrate()"><i class="fa fa-calculator"></i></div>
-    <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-blue-500 flex items-center justify-center text-xl cursor-pointer open-win-btn" data-id="python" onclick="triggerVibrate()"><i class="fa fa-code"></i></div>
-    <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-black flex items-center justify-center text-xl text-green-400 cursor-pointer open-win-btn" data-id="terminal" onclick="triggerVibrate()"><i class="fa fa-terminal"></i></div>
-    <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-pink-500 flex items-center justify-center text-xl cursor-pointer open-win-btn" data-id="photos" onclick="triggerVibrate()"><i class="fa fa-picture-o"></i></div>
-    <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-red-500 flex items-center justify-center text-xl cursor-pointer open-win-btn" data-id="music" onclick="triggerVibrate()"><i class="fa fa-music"></i></div>
-    <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-slate-500 flex items-center justify-center text-xl cursor-pointer open-win-btn" data-id="setting" onclick="triggerVibrate()"><i class="fa fa-cog"></i></div>
-    <div class="w-[1px] h-8 bg-white/30 mx-1"></div>
-    <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-red-500 flex items-center justify-center text-xl cursor-pointer" onclick="triggerVibrate();closeAllWin()"><i class="fa fa-power-off"></i></div>
+<!-- 底部Dock栏 -->
+<div class="fixed bottom-4 left-1/2 -translate-x-1/2 glass-dark-panel rounded-2xl px-3 py-2 flex gap-2 z-40">
+    <div class="w-11 h-11 rounded-xl bg-blue-600 flex items-center justify-center text-xl cursor-pointer btn-hover" onclick="openApp('calculator')">
+        <i class="fa fa-calculator"></i>
+    </div>
+    <div class="w-11 h-11 rounded-xl bg-purple-600 flex items-center justify-center text-xl cursor-pointer btn-hover" onclick="openApp('audio')">
+        <i class="fa fa-music"></i>
+    </div>
+    <div class="w-11 h-11 rounded-xl bg-slate-600 flex items-center justify-center text-xl cursor-pointer btn-hover" onclick="openApp('settings')">
+        <i class="fa fa-cog"></i>
+    </div>
+    <div class="w-[1px] h-8 bg-white/20 mx-1"></div>
+    <div class="w-11 h-11 rounded-xl bg-red-600 flex items-center justify-center text-xl cursor-pointer btn-hover" onclick="closeAllWindow()">
+        <i class="fa fa-times"></i>
+    </div>
 </div>
 
 <script>
-// ====================== 全局配置 & 本地存储KEY ======================
-const STORAGE_KEY = "tahoe26_config";
-let appConfig = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {
-    vibrateStrength:30, // 默认震动强度
-    darkMode:true,
-    calcHistory:"",
-    windowsPos:{},
-    bgType:1
+// 本地存储配置项
+const STORAGE_KEY = "custom_desktop_config";
+let systemConfig = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {
+    vibrateLevel: 25,
+    darkMode: true,
+    calcRecord: "",
+    windowPositions: {},
+    audioVolume: 70
 };
-// 初始化加载配置
-document.documentElement.classList.toggle('dark', appConfig.darkMode);
-let vibrateStrength = appConfig.vibrateStrength;
 
-// 保存配置到本地存储
-function saveConfig(){
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(appConfig));
+// 保存配置
+function saveConfig() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(systemConfig));
 }
 
-// ====================== 【核心功能】设置导出&导入 ======================
-// 导出全部配置为JSON文件下载
-function exportAllConfig(){
-    triggerVibrate();
-    const jsonStr = JSON.stringify(appConfig, null, 2);
-    const blob = new Blob([jsonStr], {type:"application/json"});
+// 导出配置文件
+function exportConfig() {
+    const blob = new Blob([JSON.stringify(systemConfig, null, 2)], {type: "application/json"});
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
-    a.download = "macOS_Tahoe_Config.json";
+    a.download = "System_Setting_Backup.json";
     a.click();
     URL.revokeObjectURL(url);
 }
-// 导入JSON配置文件
-function importAllConfig(){
-    triggerVibrate();
-    const fileInput = document.getElementById('importFileInput');
-    fileInput.onchange = (e)=>{
+
+// 导入配置文件
+function importConfig() {
+    const input = document.getElementById("fileInput");
+    input.onchange = e => {
         const file = e.target.files[0];
-        if(!file) return;
+        if (!file) return;
         const reader = new FileReader();
         reader.readAsText(file);
-        reader.onload = (res)=>{
-            try{
-                const data = JSON.parse(res.target.result);
-                appConfig = data;
-                vibrateStrength = appConfig.vibrateStrength;
-                document.documentElement.classList.toggle('dark', appConfig.darkMode);
+        reader.onload = res => {
+            try {
+                systemConfig = JSON.parse(res.target.result);
                 saveConfig();
-                alert("✅ 配置导入成功！刷新页面即可全部生效");
-            }catch(err){
-                alert("❌ 文件格式错误，请选择正确的JSON配置文件");
-                console.error(err);
+                alert("配置导入完成，重启窗口生效");
+            } catch {
+                alert("文件格式错误，请选择正确JSON配置文件");
             }
-            fileInput.value = "";
+            input.value = "";
         }
     }
-    fileInput.click();
+    input.click();
 }
 
-// ====================== 震动函数（仅手机端生效） ======================
-function triggerVibrate() {
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    if (isMobile && navigator.vibrate) {
-        navigator.vibrate(vibrateStrength);
-    }
+// 手机震动触发
+function vibrateTap() {
+    const isMobile = /Android|iPhone/i.test(navigator.userAgent);
+    if (isMobile && navigator.vibrate) navigator.vibrate(systemConfig.vibrateLevel);
 }
 
-// ====================== 全屏切换 ======================
+// 全屏切换
 function toggleFullscreen() {
-    const fullBtn = document.getElementById('fullscreenBtn');
-    if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen();
-        fullBtn.innerHTML = '<i class="fa fa-compress"></i>';
-    } else {
-        if (document.exitFullscreen) document.exitFullscreen();
-        fullBtn.innerHTML = '<i class="fa fa-expand"></i>';
-    }
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+    else document.exitFullscreen();
 }
 
-// 明暗模式切换
-function toggleDark(){
-    appConfig.darkMode = !appConfig.darkMode;
-    document.documentElement.classList.toggle('dark', appConfig.darkMode);
+// 时间更新
+function updateTime() {
+    const now = new Date();
+    document.getElementById("timeShow").innerText = now.toLocaleTimeString("zh-CN", {hour:'2-digit', minute:'2-digit'});
+}
+setInterval(updateTime,1000);
+updateTime();
+
+const winBox = document.getElementById("windowContainer");
+// 关闭所有窗口
+function closeAllWindow() { winBox.innerHTML = ""; }
+
+// 打开应用窗口
+function openApp(appId) {
+    vibrateTap();
+    if(document.getElementById(`win_${appId}`)) return;
+    let posX = systemConfig.windowPositions[appId]?.x || 120;
+    let posY = systemConfig.windowPositions[appId]?.y || 100;
+    let innerContent = "";
+
+    if(appId === "settings") {
+        innerContent = `
+        <div class="p-5 overflow-auto h-full">
+            <h2 class="text-xl font-medium mb-5">系统设置中心</h2>
+
+            <div class="glass-panel p-4 rounded-xl mb-4">
+                <div class="flex justify-between items-center mb-2">
+                    <span>点击震动强度</span>
+                    <span id="vibText">${systemConfig.vibrateLevel}ms</span>
+                </div>
+                <input type="range" min="0" max="100" value="${systemConfig.vibrateLevel}"
+                class="w-full" oninput="changeVibrate(this.value)">
+                <p class="text-xs opacity-60 mt-1">仅移动端设备生效，0=关闭震动</p>
+            </div>
+
+            <div class="glass-panel p-4 rounded-xl mb-4">
+                <div class="flex justify-between items-center mb-2">
+                    <span>媒体默认音量</span>
+                    <span>${systemConfig.audioVolume}%</span>
+                </div>
+                <input type="range" min="0" max="100" value="${systemConfig.audioVolume}"
+                class="w-full" oninput="changeVolume(this.value)">
+            </div>
+
+            <div class="glass-panel p-4 rounded-xl">
+                <h3 class="mb-3">配置备份与恢复</h3>
+                <div class="flex gap-3">
+                    <button onclick="exportConfig()" class="glass-panel px-4 py-2 rounded-lg btn-hover">导出全部设置</button>
+                    <button onclick="importConfig()" class="glass-panel px-4 py-2 rounded-lg btn-hover">导入配置文件</button>
+                </div>
+                <p class="text-xs opacity-60 mt-2">备份内容：震动、音量、计算器记录、窗口位置</p>
+            </div>
+        </div>`;
+    }
+
+    if(appId === "calculator") {
+        innerContent = `
+        <div class="p-3 h-full flex flex-col">
+            <input id="calcInput" readonly value="${systemConfig.calcRecord}"
+            class="w-full p-3 text-right text-2xl bg-black/30 rounded mb-4 outline-none">
+            <div class="grid grid-cols-4 gap-2 flex-1">
+                <button onclick="calcAdd('');saveCalcData()" class="glass-panel rounded btn-hover">AC</button>
+                <button onclick="calcAdd('/');saveCalcData()" class="glass-panel rounded btn-hover">/</button>
+                <button onclick="calcAdd('*');saveCalcData()" class="glass-panel rounded btn-hover">×</button>
+                <button onclick="calcAdd('-');saveCalcData()" class="glass-panel rounded btn-hover">-</button>
+
+                <button onclick="calcAdd('7');saveCalcData()" class="glass-panel rounded btn-hover">7</button>
+                <button onclick="calcAdd('8');saveCalcData()" class="glass-panel rounded btn-hover">8</button>
+                <button onclick="calcAdd('9');saveCalcData()" class="glass-panel rounded btn-hover">9</button>
+                <button onclick="calcAdd('+');saveCalcData()" class="glass-panel rounded btn-hover">+</button>
+
+                <button onclick="calcAdd('4');saveCalcData()" class="glass-panel rounded btn-hover">4</button>
+                <button onclick="calcAdd('5');saveCalcData()" class="glass-panel rounded btn-hover">5</button>
+                <button onclick="calcAdd('6');saveCalcData()" class="glass-panel rounded btn-hover">6</button>
+                <button onclick="calcResult()" class="glass-panel rounded btn-hover row-span-2">=</button>
+
+                <button onclick="calcAdd('1');saveCalcData()" class="glass-panel rounded btn-hover">1</button>
+                <button onclick="calcAdd('2');saveCalcData()" class="glass-panel rounded btn-hover">2</button>
+                <button onclick="calcAdd('3');saveCalcData()" class="glass-panel rounded btn-hover">3</button>
+
+                <button onclick="calcAdd('0');saveCalcData()" class="glass-panel rounded btn-hover col-span-2">0</button>
+                <button onclick="calcAdd('.');saveCalcData()" class="glass-panel rounded btn-hover">.</button>
+            </div>
+        </div>`;
+    }
+
+    if(appId === "audio") {
+        innerContent = `
+        <div class="p-5 flex flex-col items-center justify-center h-full gap-6">
+            <i class="fa fa-music text-6xl opacity-70"></i>
+            <div class="flex gap-4">
+                <button id="audioPlayBtn" class="glass-panel px-5 py-3 rounded-xl text-lg btn-hover">
+                    <i class="fa fa-play"></i> 播放
+                </button>
+                <button onclick="audioPause()" class="glass-panel px-5 py-3 rounded-xl text-lg btn-hover">
+                    <i class="fa fa-pause"></i> 暂停
+                </button>
+            </div>
+            <p class="opacity-60 text-sm">播放声音可在设置内调整默认音量</p>
+            <audio id="bgAudio" loop volume="${systemConfig.audioVolume/100}" src="https://www.soundhelix.com/examples/mp3/SoundEffects/Click.mp3">
+        </div>`;
+    }
+
+    // 创建窗口DOM
+    const win = document.createElement("div");
+    win.id = `win_${appId}`;
+    win.className = "absolute w-[520px] h-[420px] glass-dark-panel rounded-xl overflow-hidden z-20";
+    win.style.left = posX + "px";
+    win.style.top = posY + "px";
+    win.innerHTML = `
+        <div class="h-8 glass-panel flex items-center justify-between px-3 win-drag">
+            <div class="flex gap-2">
+                <span onclick="closeSingleWin('${appId}')" class="text-red-400 cursor-pointer">●</span>
+                <span class="text-yellow-400">●</span>
+                <span class="text-green-400">●</span>
+            </div>
+            <span class="text-xs">${appId}</span>
+            <div></div>
+        </div>
+        <div class="h-[calc(100%-32px)] overflow-hidden">${innerContent}</div>
+    `;
+    winBox.appendChild(win);
+    dragWindow(win, appId);
+}
+
+// 窗口拖拽+保存位置
+function dragWindow(el, id) {
+    const header = el.querySelector(".win-drag");
+    let drag = false, sX, sY, oX, oY;
+    header.onmousedown = e => {
+        drag = true;
+        sX = e.clientX; sY = e.clientY;
+        oX = el.offsetLeft; oY = el.offsetTop;
+        el.style.zIndex = 99;
+    }
+    document.onmousemove = e => {
+        if(!drag) return;
+        const nx = oX + (e.clientX - sX);
+        const ny = oY + (e.clientY - sY);
+        el.style.left = nx + "px";
+        el.style.top = ny + "px";
+        systemConfig.windowPositions[id] = {x:nx, y:ny};
+        saveConfig();
+    }
+    document.onmouseup = () => { drag = false; el.style.zIndex = 20; }
+}
+
+// 关闭单个窗口
+function closeSingleWin(id) {
+    document.getElementById(`win_${id}`)?.remove();
+}
+
+// 计算器相关函数
+function calcAdd(val) {
+    const input = document.getElementById("calcInput");
+    if(val === "") input.value = "";
+    else input.value += val;
+}
+function saveCalcData() {
+    systemConfig.calcRecord = document.getElementById("calcInput").value;
     saveConfig();
 }
-
-// ====================== 窗口管理、时间、菜单、壁纸等原有函数 ======================
-function checkDevice() {
-    const rotateTip = document.getElementById('rotateTip');
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    const isPortrait = window.innerHeight > window.innerWidth;
-    if (isMobile && isPortrait) rotateTip.style.display = "flex";
+function calcResult() {
+    try {
+        const input = document.getElementById("calcInput");
+        input.value = eval(input.value);
+        saveCalcData();
+    } catch {
+        document.getElementById("calcInput").value = "错误";
+    }
 }
-function closeRotateTip(){ document.getElementById('rotateTip').style.display = "none"; }
-window.addEventListener('resize', checkDevice);
-checkDevice();
 
-// 关闭所有下拉菜单
-const allMenus = document.querySelectorAll('.menu-dropdown');
-document.querySelectorAll('.menu-parent').forEach(parent=>{
-    const menu = parent.querySelector('.menu-dropdown');
-    parent.onclick=(e)=>{
-        e.stopPropagation();
-        allMenus.forEach(m=>m.style.display='none');
-        menu.style.display = menu.style.display==='block'?'none':'block';
-        triggerVibrate();
+// 修改震动强度
+function changeVibrate(val) {
+    systemConfig.vibrateLevel = Number(val);
+    document.getElementById("vibText").innerText = val + "ms";
+    saveConfig();
+    vibrateTap();
+}
+
+// 修改音量
+function changeVolume(val) {
+    systemConfig.audioVolume = Number(val);
+    saveConfig();
+    const audio = document.getElementById("bgAudio");
+    if(audio) audio.volume = val/100;
+}
+
+// 音频控制
+function audioPause() {
+    const audio = document.getElementById("bgAudio");
+    if(audio) audio.pause();
+}
+document.getElementById("windowContainer").addEventListener("click",(e)=>{
+    if(e.target.id === "audioPlayBtn"){
+        document.getElementById("bgAudio").play();
     }
 })
-document.addEventListener('cl
+</script>
+</body>
+</html>
