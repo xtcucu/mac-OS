@@ -2,12 +2,10 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <!-- 移动端强制缩放适配 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>macOS WebOS | HINS</title>
+    <title>macOS Tahoe 26.1.0 | HINS</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css">
-    <!-- Pyodide 用于前端运行Python -->
     <script src="https://cdn.jsdelivr.net/npm/pyodide@0.25.0/pyodide.js"></script>
     <script>
         tailwind.config = {
@@ -15,9 +13,9 @@
             theme: {
                 extend: {
                     colors: {
-                        macTop: 'rgba(30,30,30,0.75)',
-                        macGlass: 'rgba(255,255,255,0.15)',
-                        macDarkGlass: 'rgba(20,20,25,0.4)',
+                        glassBase: 'rgba(255,255,255,0.08)',
+                        glassDark: 'rgba(15,15,20,0.35)',
+                        glassStroke: 'rgba(255,255,255,0.12)',
                     }
                 }
             }
@@ -25,15 +23,65 @@
     </script>
     <style type="text/tailwindcss">
         @layer utilities {
-            .glass {
-                backdrop-filter: blur(16px) saturate(180%);
-                -webkit-backdrop-filter: blur(16px) saturate(180%);
+            /* Liquid Glass 苹果液态玻璃核心样式 动态光影折射 */
+            .liquid-glass {
+                background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04));
+                backdrop-filter: blur(22px) saturate(220%);
+                -webkit-backdrop-filter: blur(22px) saturate(220%);
+                border: 1px solid rgba(255,255,255,0.12);
+                box-shadow:
+                    0 8px 32px rgba(0,0,0,0.3),
+                    inset 0 1px 0 rgba(255,255,255,0.18),
+                    inset 0 -1px 0 rgba(0,0,0,0.1);
+                transition: all 0.3s cubic-bezier(0.2,0,0.2,1);
+            }
+            .liquid-glass-dark {
+                background: linear-gradient(135deg, rgba(40,40,50,0.35), rgba(20,20,30,0.25));
+                backdrop-filter: blur(22px) saturate(220%);
+                -webkit-backdrop-filter: blur(22px) saturate(220%);
+                border: 1px solid rgba(255,255,255,0.08);
+                box-shadow:
+                    0 8px 32px rgba(0,0,0,0.4),
+                    inset 0 1px 0 rgba(255,255,255,0.08);
+                transition: all 0.3s cubic-bezier(0.2,0,0.2,1);
+            }
+            .hover-liquid:hover {
+                background: linear-gradient(135deg, rgba(255,255,255,0.18), rgba(255,255,255,0.06));
+                transform: scale(1.02);
             }
             .window-drag { cursor: move; }
-            .dock-item { transition: all 0.2s ease; }
+            .dock-item { transition: all 0.25s cubic-bezier(0.2,0,0.2,1); }
             .dock-item:hover { transform: translateY(-8px) scale(1.15); }
-            .start-screen { backdrop-filter: blur(8px); }
             .resize-handle { width:10px; height:10px; position:absolute; right:0; bottom:0; cursor:nwse-resize; z-index:10; }
+            .menu-dropdown {
+                display: none;
+                position: absolute;
+                top: 28px;
+                left: 0;
+                @apply liquid-glass-dark rounded-lg py-1 min-w-[140px] z-[9999];
+            }
+            .menu-item {
+                padding: 7px 14px;
+                cursor: pointer;
+                font-size: 13px;
+                @apply hover-liquid;
+            }
+            .split-line { height: 1px; background: rgba(255,255,255,0.15); margin:6px 0; }
+            .menu-parent { position: relative; cursor: pointer; }
+            /* 美化滚动条 */
+            ::-webkit-scrollbar { width:6px;height:6px; }
+            ::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.2); border-radius:3px; }
+            ::-webkit-scrollbar-track { background:transparent; }
+            /* 窗口通用样式 */
+            .app-window{
+                position:absolute;
+                width:600px;height:400px;
+                @apply liquid-glass-dark rounded-xl overflow-hidden z-30;
+            }
+            .win-header{
+                height:36px;
+                @apply liquid-glass flex items-center justify-between px-3 window-drag;
+            }
         }
         body {
             background: url('https://img1.baidu.com/it/u=123124125,3802562127&fm=253&fmt=auto&app=138&f=JPEG?w=1920&h=1080') no-repeat center;
@@ -43,106 +91,153 @@
         }
         .dark body { background: #0c0c10; }
         #contextMenu { display: none; z-index:99999; }
+        #rotateTip { display: none; }
+        /* 隐藏原生文件选择框 */
+        #importFileInput{ display:none; }
     </style>
 </head>
 <body class="dark text-white overflow-hidden select-none" id="desktop">
+<!-- 隐藏导入文件input -->
+<input type="file" id="importFileInput" accept=".json">
+
+<!-- 手机竖屏横屏提示弹窗 -->
+<div id="rotateTip" class="fixed inset-0 bg-black/85 z-[99999] flex flex-col items-center justify-center p-6 text-center">
+    <i class="fa fa-mobile text-6xl mb-4 animate-pulse"></i>
+    <h2 class="text-xl mb-2">建议横向旋转屏幕</h2>
+    <p class="opacity-70 mb-6">当前为手机竖屏模式，横屏后macOS Tahoe液态玻璃桌面体验更佳</p>
+    <button onclick="closeRotateTip()" class="px-6 py-2 liquid-glass rounded-lg">我知道了</button>
+</div>
 
 <!-- 桌面右键菜单 -->
-<div id="contextMenu" class="fixed glass bg-black/70 rounded-lg py-2 px-2 text-sm w-36">
-    <div class="px-2 py-1 hover:bg-white/20 rounded cursor-pointer" onclick="refreshDesktop()">刷新桌面</div>
-    <div class="px-2 py-1 hover:bg-white/20 rounded cursor-pointer" onclick="openWallpaperPanel()">更换壁纸</div>
-    <div class="px-2 py-1 hover:bg-white/20 rounded cursor-pointer" onclick="closeAllWin()">关闭所有窗口</div>
+<div id="contextMenu" class="fixed liquid-glass-dark rounded-lg py-2 px-2 text-sm w-36">
+    <div class="px-2 py-1 hover-liquid rounded cursor-pointer" onclick="triggerVibrate();refreshDesktop()">刷新桌面</div>
+    <div class="px-2 py-1 hover-liquid rounded cursor-pointer" onclick="triggerVibrate();openWallpaperPanel()">更换壁纸</div>
+    <div class="px-2 py-1 hover-liquid rounded cursor-pointer" onclick="triggerVibrate();closeAllWin()">关闭所有窗口</div>
 </div>
 
 <!-- 壁纸选择弹窗 -->
-<div id="wallPanel" class="fixed hidden w-[400px] max-w-[90vw] glass bg-macDarkGlass rounded-xl p-4 z-[9998]">
+<div id="wallPanel" class="fixed hidden w-[400px] max-w-[90vw] liquid-glass-dark rounded-xl p-4 z-[9998]">
     <div class="flex justify-between items-center mb-3">
         <span>选择壁纸</span>
-        <button onclick="wallPanel.classList.add('hidden')">✕</button>
+        <button onclick="triggerVibrate();wallPanel.classList.add('hidden')">✕</button>
     </div>
     <div class="grid grid-cols-2 gap-2">
-        <button class="p-2 border rounded hover:bg-white/10" onclick="setWall(1)">默认mac壁纸</button>
-        <button class="p-2 border rounded hover:bg-white/10" onclick="setWall(2)">星空黑壁纸</button>
-        <button class="p-2 border rounded hover:bg-white/10" onclick="setWall(3)">海边风景</button>
-        <button class="p-2 border rounded hover:bg-white/10" onclick="setWall(4)">纯色深色</button>
+        <button class="p-2 rounded liquid-glass hover-liquid" onclick="triggerVibrate();setWall(1)">默认Tahoe壁纸</button>
+        <button class="p-2 rounded liquid-glass hover-liquid" onclick="triggerVibrate();setWall(2)">深空黑壁纸</button>
+        <button class="p-2 rounded liquid-glass hover-liquid" onclick="triggerVibrate();setWall(3)">海边风景</button>
+        <button class="p-2 rounded liquid-glass hover-liquid" onclick="triggerVibrate();setWall(4)">纯深色背景</button>
     </div>
 </div>
 
-<!-- 顶部菜单栏（默认直接显示） -->
-<div id="topBar" class="fixed top-0 left-0 right-0 h-7 bg-macTop glass flex items-center justify-between px-4 z-50">
-    <div class="flex gap-4 items-center">
-        <i class="fa fa-apple text-lg"></i>
-        <span class="text-sm font-medium">HINS-MacOS</span>
-        <span class="text-xs opacity-70">文件 编辑 显示 前往</span>
+<!-- 反馈弹窗 -->
+<div id="feedbackModal" class="fixed hidden w-[450px] max-w-[92vw] liquid-glass-dark rounded-xl p-5 z-[9999] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+    <div class="flex justify-between items-center mb-3">
+        <span class="text-lg">提交反馈与建议</span>
+        <button onclick="triggerVibrate();feedbackModal.classList.add('hidden')">✕</button>
     </div>
-    <div class="flex gap-3 text-sm items-center">
-        <button id="wallBtn" class="hover:text-gray-300">更换壁纸</button>
-        <button id="themeBtn"><i class="fa fa-moon-o"></i></button>
+    <textarea id="feedbackText" class="w-full h-36 bg-black/40 p-3 rounded outline-none resize-none liquid-glass" placeholder="请输入BUG、功能建议、想要新增的功能..."></textarea>
+    <button onclick="triggerVibrate();submitFeedback()" class="mt-3 w-full liquid-glass py-2 rounded hover-liquid">提交反馈</button>
+</div>
+
+<!-- 顶部菜单栏（Tahoe透明菜单栏+全屏按钮） -->
+<div id="topBar" class="fixed top-0 left-0 right-0 h-7 liquid-glass flex items-center justify-between px-4 z-50 text-sm">
+    <div class="flex gap-4 items-center">
+        <!-- Apple主菜单 -->
+        <div class="relative menu-parent">
+            <div id="appleBtn" class="flex items-center gap-1">
+                <i class="fa fa-apple text-lg"></i>
+            </div>
+            <div id="appleMenu" class="menu-dropdown">
+                <div class="menu-item" onclick="triggerVibrate();openAbout()">关于本机</div>
+                <div class="menu-item" onclick="triggerVibrate();openWindowById('setting')">系统设置</div>
+                <div class="split-line"></div>
+                <div class="menu-item" onclick="triggerVibrate();openFeedback()">提交反馈</div>
+                <div class="split-line"></div>
+                <div class="menu-item" onclick="triggerVibrate();refreshDesktop()">重启桌面</div>
+                <div class="menu-item" onclick="triggerVibrate();closeAllWin()">关闭全部窗口</div>
+            </div>
+        </div>
+        <div class="relative menu-parent"><span class="menu-title">文件</span>
+            <div class="menu-dropdown">
+                <div class="menu-item" onclick="triggerVibrate();openWindowById('textedit')">新建文本文件</div>
+                <div class="menu-item" onclick="triggerVibrate();openWindowById('finder')">打开访达</div>
+                <div class="split-line"></div>
+                <div class="menu-item" onclick="triggerVibrate();closeAllWin()">关闭全部窗口</div>
+            </div>
+        </div>
+        <div class="relative menu-parent"><span class="menu-title">编辑</span>
+            <div class="menu-dropdown">
+                <div class="menu-item">撤销</div><div class="menu-item">重做</div><div class="split-line"></div>
+                <div class="menu-item">复制</div><div class="menu-item">粘贴</div><div class="menu-item">全选</div>
+            </div>
+        </div>
+        <div class="relative menu-parent"><span class="menu-title">显示</span>
+            <div class="menu-dropdown">
+                <div class="menu-item" onclick="triggerVibrate();openWallpaperPanel()">更换壁纸</div>
+                <div class="menu-item" onclick="triggerVibrate();toggleDark()">切换明暗模式</div>
+                <div class="split-line"></div>
+                <div class="menu-item">放大界面</div><div class="menu-item">缩小界面</div>
+            </div>
+        </div>
+        <div class="relative menu-parent"><span class="menu-title">前往</span>
+            <div class="menu-dropdown">
+                <div class="menu-item" onclick="triggerVibrate();openWindowById('finder')">桌面</div>
+                <div class="menu-item" onclick="triggerVibrate();openWindowById('safari')">浏览器</div>
+                <div class="menu-item" onclick="triggerVibrate();openWindowById('terminal')">终端</div>
+            </div>
+        </div>
+    </div>
+    <div class="flex gap-3 items-center text-xs md:text-sm">
+        <!-- 新增全屏切换按钮 -->
+        <button id="fullscreenBtn" class="hover:text-gray-300" onclick="triggerVibrate();toggleFullscreen()" title="切换全屏">
+            <i class="fa fa-expand"></i>
+        </button>
+        <button id="wallBtn" class="hover:text-gray-300" onclick="triggerVibrate();openWallpaperPanel()">壁纸</button>
+        <button id="themeBtn" onclick="triggerVibrate();toggleDark()"><i class="fa fa-moon-o"></i></button>
         <span id="time"></span>
     </div>
 </div>
 
-<!-- 桌面右侧图标（新增Python编辑器图标） -->
+<!-- 桌面图标 -->
 <div id="desktopIcons" class="absolute top-10 right-2 md:right-6 flex flex-col gap-4">
-    <div class="flex flex-col items-center w-16 cursor-pointer open-window" data-id="finder">
-        <div class="w-12 h-12 rounded-xl bg-yellow-500/80 flex items-center justify-center text-2xl">
-            <i class="fa fa-folder-open"></i>
-        </div>
+    <div class="flex flex-col items-center w-16 cursor-pointer open-win-btn liquid-glass rounded-xl p-1" data-id="finder" onclick="triggerVibrate()">
+        <div class="w-12 h-12 rounded-xl bg-yellow-500/80 flex items-center justify-center text-2xl"><i class="fa fa-folder-open"></i></div>
         <span class="text-xs mt-1">访达</span>
     </div>
-    <div class="flex flex-col items-center w-16 cursor-pointer open-window" data-id="safari">
-        <div class="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center text-2xl">
-            <i class="fa fa-safari"></i>
-        </div>
+    <div class="flex flex-col items-center w-16 cursor-pointer open-win-btn liquid-glass rounded-xl p-1" data-id="safari" onclick="triggerVibrate()">
+        <div class="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center text-2xl"><i class="fa fa-safari"></i></div>
         <span class="text-xs mt-1">Safari</span>
     </div>
-    <div class="flex flex-col items-center w-16 cursor-pointer open-window" data-id="notes">
-        <div class="w-12 h-12 rounded-xl bg-yellow-400 flex items-center justify-center text-2xl text-black">
-            <i class="fa fa-sticky-note"></i>
-        </div>
+    <div class="flex flex-col items-center w-16 cursor-pointer open-win-btn liquid-glass rounded-xl p-1" data-id="notes" onclick="triggerVibrate()">
+        <div class="w-12 h-12 rounded-xl bg-yellow-400 flex items-center justify-center text-2xl text-black"><i class="fa fa-sticky-note"></i></div>
         <span class="text-xs mt-1">备忘录</span>
     </div>
-    <div class="flex flex-col items-center w-16 cursor-pointer open-window" data-id="calc">
-        <div class="w-12 h-12 rounded-xl bg-gray-600 flex items-center justify-center text-2xl">
-            <i class="fa fa-calculator"></i>
-        </div>
+    <div class="flex flex-col items-center w-16 cursor-pointer open-win-btn liquid-glass rounded-xl p-1" data-id="calc" onclick="triggerVibrate()">
+        <div class="w-12 h-12 rounded-xl bg-gray-600 flex items-center justify-center text-2xl"><i class="fa fa-calculator"></i></div>
         <span class="text-xs mt-1">计算器</span>
     </div>
-    <div class="flex flex-col items-center w-16 cursor-pointer open-window" data-id="textedit">
-        <div class="w-12 h-12 rounded-xl bg-white flex items-center justify-center text-2xl text-gray-800">
-            <i class="fa fa-file-text-o"></i>
-        </div>
+    <div class="flex flex-col items-center w-16 cursor-pointer open-win-btn liquid-glass rounded-xl p-1" data-id="textedit" onclick="triggerVibrate()">
+        <div class="w-12 h-12 rounded-xl bg-white flex items-center justify-center text-2xl text-gray-800"><i class="fa fa-file-text-o"></i></div>
         <span class="text-xs mt-1">文本编辑</span>
     </div>
-    <!-- Python编辑器图标 -->
-    <div class="flex flex-col items-center w-16 cursor-pointer open-window" data-id="python">
-        <div class="w-12 h-12 rounded-xl bg-blue-500 flex items-center justify-center text-2xl">
-            <i class="fa fa-code"></i>
-        </div>
+    <div class="flex flex-col items-center w-16 cursor-pointer open-win-btn liquid-glass rounded-xl p-1" data-id="python" onclick="triggerVibrate()">
+        <div class="w-12 h-12 rounded-xl bg-blue-500 flex items-center justify-center text-2xl"><i class="fa fa-code"></i></div>
         <span class="text-xs mt-1">Python编辑器</span>
     </div>
-    <div class="flex flex-col items-center w-16 cursor-pointer open-window" data-id="terminal">
-        <div class="w-12 h-12 rounded-xl bg-black flex items-center justify-center text-2xl text-green-400">
-            <i class="fa fa-terminal"></i>
-        </div>
+    <div class="flex flex-col items-center w-16 cursor-pointer open-win-btn liquid-glass rounded-xl p-1" data-id="terminal" onclick="triggerVibrate()">
+        <div class="w-12 h-12 rounded-xl bg-black flex items-center justify-center text-2xl text-green-400"><i class="fa fa-terminal"></i></div>
         <span class="text-xs mt-1">终端</span>
     </div>
-    <div class="flex flex-col items-center w-16 cursor-pointer open-window" data-id="photos">
-        <div class="w-12 h-12 rounded-xl bg-pink-500 flex items-center justify-center text-2xl">
-            <i class="fa fa-picture-o"></i>
-        </div>
+    <div class="flex flex-col items-center w-16 cursor-pointer open-win-btn liquid-glass rounded-xl p-1" data-id="photos" onclick="triggerVibrate()">
+        <div class="w-12 h-12 rounded-xl bg-pink-500 flex items-center justify-center text-2xl"><i class="fa fa-picture-o"></i></div>
         <span class="text-xs mt-1">照片</span>
     </div>
-    <div class="flex flex-col items-center w-16 cursor-pointer open-window" data-id="music">
-        <div class="w-12 h-12 rounded-xl bg-red-500 flex items-center justify-center text-2xl">
-            <i class="fa fa-music"></i>
-        </div>
+    <div class="flex flex-col items-center w-16 cursor-pointer open-win-btn liquid-glass rounded-xl p-1" data-id="music" onclick="triggerVibrate()">
+        <div class="w-12 h-12 rounded-xl bg-red-500 flex items-center justify-center text-2xl"><i class="fa fa-music"></i></div>
         <span class="text-xs mt-1">音乐</span>
     </div>
-    <div class="flex flex-col items-center w-16 cursor-pointer open-window" data-id="setting">
-        <div class="w-12 h-12 rounded-xl bg-slate-500 flex items-center justify-center text-2xl">
-            <i class="fa fa-cog"></i>
-        </div>
+    <div class="flex flex-col items-center w-16 cursor-pointer open-win-btn liquid-glass rounded-xl p-1" data-id="setting" onclick="triggerVibrate()">
+        <div class="w-12 h-12 rounded-xl bg-slate-500 flex items-center justify-center text-2xl"><i class="fa fa-cog"></i></div>
         <span class="text-xs mt-1">系统设置</span>
     </div>
 </div>
@@ -150,292 +245,127 @@
 <!-- 窗口容器 -->
 <div id="windows-box"></div>
 
-<!-- 底部Dock栏（新增Python编辑器入口） -->
-<div id="dockBar" class="fixed bottom-3 left-1/2 -translate-x-1/2 glass bg-macGlass rounded-2xl px-2 py-2 flex gap-1 md:gap-2 z-40">
-    <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-yellow-500/80 flex items-center justify-center text-xl cursor-pointer open-window" data-id="finder">
-        <i class="fa fa-folder"></i>
-    </div>
-    <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-blue-600 flex items-center justify-center text-xl cursor-pointer open-window" data-id="safari">
-        <i class="fa fa-safari"></i>
-    </div>
-    <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-yellow-400 flex items-center justify-center text-xl text-black cursor-pointer open-window" data-id="notes">
-        <i class="fa fa-sticky-note"></i>
-    </div>
-    <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-gray-600 flex items-center justify-center text-xl cursor-pointer open-window" data-id="calc">
-        <i class="fa fa-calculator"></i>
-    </div>
-    <!-- Python Dock图标 -->
-    <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-blue-500 flex items-center justify-center text-xl cursor-pointer open-window" data-id="python">
-        <i class="fa fa-code"></i>
-    </div>
-    <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-black flex items-center justify-center text-xl text-green-400 cursor-pointer open-window" data-id="terminal">
-        <i class="fa fa-terminal"></i>
-    </div>
-    <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-pink-500 flex items-center justify-center text-xl cursor-pointer open-window" data-id="photos">
-        <i class="fa fa-picture-o"></i>
-    </div>
-    <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-red-500 flex items-center justify-center text-xl cursor-pointer open-window" data-id="music">
-        <i class="fa fa-music"></i>
-    </div>
-    <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-slate-500 flex items-center justify-center text-xl cursor-pointer open-window" data-id="setting">
-        <i class="fa fa-cog"></i>
-    </div>
+<!-- 底部Tahoe液态玻璃Dock栏 -->
+<div id="dockBar" class="fixed bottom-3 left-1/2 -translate-x-1/2 liquid-glass rounded-2xl px-2 py-2 flex gap-1 md:gap-2 z-40">
+    <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-yellow-500/80 flex items-center justify-center text-xl cursor-pointer open-win-btn" data-id="finder" onclick="triggerVibrate()"><i class="fa fa-folder"></i></div>
+    <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-blue-600 flex items-center justify-center text-xl cursor-pointer open-win-btn" data-id="safari" onclick="triggerVibrate()"><i class="fa fa-safari"></i></div>
+    <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-yellow-400 flex items-center justify-center text-xl text-black cursor-pointer open-win-btn" data-id="notes" onclick="triggerVibrate()"><i class="fa fa-sticky-note"></i></div>
+    <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-gray-600 flex items-center justify-center text-xl cursor-pointer open-win-btn" data-id="calc" onclick="triggerVibrate()"><i class="fa fa-calculator"></i></div>
+    <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-blue-500 flex items-center justify-center text-xl cursor-pointer open-win-btn" data-id="python" onclick="triggerVibrate()"><i class="fa fa-code"></i></div>
+    <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-black flex items-center justify-center text-xl text-green-400 cursor-pointer open-win-btn" data-id="terminal" onclick="triggerVibrate()"><i class="fa fa-terminal"></i></div>
+    <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-pink-500 flex items-center justify-center text-xl cursor-pointer open-win-btn" data-id="photos" onclick="triggerVibrate()"><i class="fa fa-picture-o"></i></div>
+    <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-red-500 flex items-center justify-center text-xl cursor-pointer open-win-btn" data-id="music" onclick="triggerVibrate()"><i class="fa fa-music"></i></div>
+    <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-slate-500 flex items-center justify-center text-xl cursor-pointer open-win-btn" data-id="setting" onclick="triggerVibrate()"><i class="fa fa-cog"></i></div>
     <div class="w-[1px] h-8 bg-white/30 mx-1"></div>
-    <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-red-500 flex items-center justify-center text-xl cursor-pointer" onclick="closeAllWin()">
-        <i class="fa fa-power-off"></i>
-    </div>
+    <div class="dock-item w-10 h-10 md:w-11 md:h-11 rounded-xl bg-red-500 flex items-center justify-center text-xl cursor-pointer" onclick="triggerVibrate();closeAllWin()"><i class="fa fa-power-off"></i></div>
 </div>
 
 <script>
-// Python运行实例
-let pyodide = null;
-async function loadPyodideRuntime() {
-    if (!pyodide) {
-        pyodide = await loadPyodide();
-    }
-    return pyodide;
-}
-
-// 运行Python代码
-async function runPythonCode() {
-    const codeInput = document.getElementById('pyCode');
-    const outputBox = document.getElementById('pyOutput');
-    const code = codeInput.value;
-    outputBox.textContent = "正在加载Python环境并运行...\n";
-    try {
-        const py = await loadPyodideRuntime();
-        // 捕获print输出
-        py.runPython(`
-import sys
-from io import StringIO
-sys.stdout = captured_output = StringIO()
-`);
-        py.runPython(code);
-        const result = py.runPython("captured_output.getvalue()");
-        outputBox.textContent = "运行结果：\n" + result;
-    } catch (err) {
-        outputBox.textContent = "报错信息：\n" + err;
-    }
-}
-
-// 清空代码编辑器
-function clearPyEditor() {
-    document.getElementById('pyCode').value = "";
-    document.getElementById('pyOutput').textContent = "运行输出会展示在这里...";
-}
-
-// 保存代码到本地下载
-function savePyFile() {
-    const code = document.getElementById('pyCode').value;
-    const blob = new Blob([code], {type: "text/plain"});
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = "code.py";
-    a.click();
-}
-
-// 顶部时间
-function updateTime(){
-    const now = new Date();
-    document.getElementById('time').innerText = now.toLocaleString('zh-CN');
-}
-setInterval(updateTime,1000);
-updateTime();
-
-// 明暗主题切换
-const html = document.documentElement;
-document.getElementById('themeBtn').onclick = ()=> html.classList.toggle('dark');
-
-// 壁纸切换
-const wallPanel = document.getElementById('wallPanel');
-document.getElementById('wallBtn').onclick = ()=> wallPanel.classList.remove('hidden');
-function setWall(type){
-    const body = document.body;
-    const walls = {
-        1: 'https://img1.baidu.com/it/u=123124125,3802562127&fm=253&fmt=auto&app=138&f=JPEG?w=1920&h=1080',
-        2: 'https://img2.baidu.com/it/u=3942215232,3080712131&fm=253&fmt=auto',
-        3: 'https://img2.baidu.com/it/u=2956342135,386234127&fm=253&fmt=auto',
-        4: ''
-    }
-    if(type ===4) body.style.background = '#111118';
-    else body.style.background = `url(${walls[type]}) center/cover no-repeat`;
-    wallPanel.classList.add('hidden');
-}
-
-// 桌面右键菜单
-const contextMenu = document.getElementById('contextMenu');
-const desktop = document.getElementById('desktop');
-desktop.oncontextmenu = (e)=>{
-    e.preventDefault();
-    contextMenu.style.left = e.pageX + 'px';
-    contextMenu.style.top = e.pageY + 'px';
-    contextMenu.style.display = 'block';
-}
-document.addEventListener('click',()=> contextMenu.style.display = 'none');
-function refreshDesktop(){ location.reload(); }
-function openWallpaperPanel(){ wallPanel.classList.remove('hidden'); }
-
-// 所有应用窗口内容配置（新增Python编辑器配置）
-const winContent = {
-    finder: {
-        title: "访达 - 我的文件",
-        html: `
-        <div class="flex h-[420px]">
-            <div class="w-1/4 bg-white/10 p-2">
-                <div class="py-1 opacity-80">个人收藏</div>
-                <div class="py-1 hover:bg-white/10 px-2 rounded cursor-pointer">桌面</div>
-                <div class="py-1 hover:bg-white/10 px-2 rounded cursor-pointer">下载项</div>
-                <div class="py-1 hover:bg-white/10 px-2 rounded cursor-pointer">文稿</div>
-            </div>
-            <div class="flex-1 p-4 grid grid-cols-3 gap-3 text-center">
-                <div class="p-2 hover:bg-white/10 rounded cursor-pointer"><i class="fa fa-file-code-o text-2xl"></i><p class="text-xs mt-1">main.cpp</p></div>
-                <div class="p-2 hover:bg-white/10 rounded cursor-pointer"><i class="fa fa-file-text-o text-2xl"></i><p class="text-xs mt-1">笔记.txt</p></div>
-                <div class="p-2 hover:bg-white/10 rounded cursor-pointer"><i class="fa fa-folder text-2xl"></i><p class="text-xs mt-1">项目文件夹</p></div>
-            </div>
-        </div>`
-    },
-    safari: {
-        title: "Safari 浏览器",
-        html: `
-        <div class="p-2 flex gap-2 items-center border-b border-white/20">
-            <button class="px-2">←</button><button class="px-2">→</button>
-            <input id="urlInput" class="flex-1 bg-white/10 rounded px-2 py-1 text-sm outline-none" value="https://www.baidu.com" placeholder="输入网址">
-            <button onclick="openUrl()" class="bg-blue-600 px-3 py-1 rounded text-sm">前往</button>
-        </div>
-        <iframe id="webFrame" src="https://www.baidu.com" class="w-full h-[420px] border-none bg-white"></iframe>
-        `
-    },
-    notes: {
-        title: "备忘录",
-        html: `
-        <textarea class="w-full h-[440px] bg-transparent p-3 outline-none resize-none" placeholder="在这里输入笔记内容...
-示例：
-1. 学习C++
-2. 完善macOS网页系统
-3. 拍摄手机实拍照片"></textarea>`
-    },
-    calc: {
-        title: "计算器",
-        html: `
-        <div class="p-3 w-[260px] mx-auto">
-            <input id="calcInput" readonly class="w-full bg-white/10 text-right p-2 text-xl rounded mb-2" value="0">
-            <div class="grid grid-cols-4 gap-2">
-                <button onclick="calcNum('7')" class="p-2 bg-white/10 rounded hover:bg-white/20">7</button>
-                <button onclick="calcNum('8')" class="p-2 bg-white/10 rounded hover:bg-white/20">8</button>
-                <button onclick="calcNum('9')" class="p-2 bg-white/10 rounded hover:bg-white/20">9</button>
-                <button onclick="calcNum('/')" class="p-2 bg-orange-500/70 rounded">÷</button>
-
-                <button onclick="calcNum('4')" class="p-2 bg-white/10 rounded hover:bg-white/20">4</button>
-                <button onclick="calcNum('5')" class="p-2 bg-white/10 rounded hover:bg-white/20">5</button>
-                <button onclick="calcNum('6')" class="p-2 bg-white/10 rounded hover:bg-white/20">6</button>
-                <button onclick="calcNum('*')" class="p-2 bg-orange-500/70 rounded">×</button>
-
-                <button onclick="calcNum('1')" class="p-2 bg-white/10 rounded hover:bg-white/20">1</button>
-                <button onclick="calcNum('2')" class="p-2 bg-white/10 rounded hover:bg-white/20">2</button>
-                <button onclick="calcNum('3')" class="p-2 bg-white/10 rounded hover:bg-white/20">3</button>
-                <button onclick="calcNum('-')" class="p-2 bg-orange-500/70 rounded">-</button>
-
-                <button onclick="calcClear()" class="p-2 bg-gray-500/70 rounded">C</button>
-                <button onclick="calcNum('0')" class="p-2 bg-white/10 rounded hover:bg-white/20">0</button>
-                <button onclick="calcNum('.')" class="p-2 bg-white/10 rounded hover:bg-white/20">.</button>
-                <button onclick="calcResult()" class="p-2 bg-orange-500/70 rounded">=</button>
-                <button onclick="calcNum('+')" class="col-span-4 p-2 bg-orange-500/70 rounded">+</button>
-            </div>
-        </div>`
-    },
-    textedit: {
-        title: "文本编辑",
-        html: `<textarea class="w-full h-[440px] bg-white text-black p-3 outline-none resize-none" placeholder="纯文本文档，开始输入内容..."></textarea>`
-    },
-    // 新增Python编程编辑器窗口
-    python: {
-        title: "Python 代码编辑器",
-        html: `
-        <div class="flex flex-col h-[440px]">
-            <div class="flex gap-2 p-2 border-b border-white/20">
-                <button onclick="runPythonCode()" class="bg-green-600 px-3 py-1 rounded text-sm">▶ 运行编译</button>
-                <button onclick="clearPyEditor()" class="bg-gray-600 px-3 py-1 rounded text-sm">清空</button>
-                <button onclick="savePyFile()" class="bg-blue-600 px-3 py-1 rounded text-sm">保存为.py文件</button>
-            </div>
-            <textarea id="pyCode" class="flex-1 bg-gray-900 p-3 outline-none resize-none font-mono text-sm" placeholder='# 在这里写Python代码
-# 示例:
-print("Hello Python!")
-a = 1+2
-print(a)'># 示例代码
-print("Hello World!")
-</textarea>
-            <div class="h-[120px] border-t border-white/20 p-2 overflow-auto bg-black/60">
-                <div id="pyOutput" class="text-green-400 font-mono text-sm">运行输出会展示在这里...</div>
-            </div>
-        </div>
-        `
-    },
-    terminal: {
-        title: "终端",
-        html: `
-        <div class="p-3 bg-black h-[440px] text-green-400 font-mono text-sm overflow-auto">
-            <div id="termLog"></div>
-            <div class="flex items-center">
-                <span>hins@mac ~ % </span>
-                <input id="termInput" class="flex-1 bg-transparent outline-none ml-1" onkeydown="termEnter(event)">
-            </div>
-        </div>`
-    },
-    photos: {
-        title: "照片",
-        html: `
-        <div class="p-4 grid grid-cols-4 gap-2">
-            <div class="h-20 bg-pink-700/60 rounded"></div>
-            <div class="h-20 bg-blue-700/60 rounded"></div>
-            <div class="h-20 bg-green-700/60 rounded"></div>
-            <div class="h-20 bg-yellow-700/60 rounded"></div>
-            <div class="h-20 bg-red-700/60 rounded"></div>
-            <div class="h-20 bg-indigo-700/60 rounded"></div>
-            <div class="h-20 bg-cyan-700/60 rounded"></div>
-            <div class="h-20 bg-orange-700/60 rounded"></div>
-        </div>`
-    },
-    music: {
-        title: "音乐",
-        html: `
-        <div class="p-4 text-center">
-            <i class="fa fa-music text-6xl text-red-500 my-6"></i>
-            <p class="opacity-70">模拟Apple Music界面</p>
-            <p class="text-sm mt-2">暂无播放歌曲，可后续添加播放功能</p>
-        </div>`
-    },
-    setting: {
-        title: "系统设置",
-        html: `
-        <div class="flex h-[420px]">
-            <div class="w-1/4 bg-white/10 p-2 text-sm">
-                <div class="py-2 hover:bg-white/10 px-2 rounded cursor-pointer">外观</div>
-                <div class="py-2 hover:bg-white/10 px-2 rounded cursor-pointer">墙纸</div>
-                <div class="py-2 hover:bg-white/10 px-2 rounded cursor-pointer">显示器</div>
-                <div class="py-2 hover:bg-white/10 px-2 rounded cursor-pointer">网络</div>
-                <div class="py-2 hover:bg-white/10 px-2 rounded cursor-pointer">蓝牙</div>
-                <div class="py-2 hover:bg-white/10 px-2 rounded cursor-pointer">用户与群组</div>
-            </div>
-            <div class="flex-1 p-4 opacity-70">点击左侧选项查看设置详情</div>
-        </div>`
-    }
+// ====================== 全局配置 & 本地存储KEY ======================
+const STORAGE_KEY = "tahoe26_config";
+let appConfig = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {
+    vibrateStrength:30, // 默认震动强度
+    darkMode:true,
+    calcHistory:"",
+    windowsPos:{},
+    bgType:1
 };
+// 初始化加载配置
+document.documentElement.classList.toggle('dark', appConfig.darkMode);
+let vibrateStrength = appConfig.vibrateStrength;
 
-// Safari跳转网址
-function openUrl(){
-    const input = document.getElementById('urlInput');
-    const frame = document.getElementById('webFrame');
-    let url = input.value.trim();
-    if(!url.startsWith('http')) url = 'https://' + url;
-    frame.src = url;
+// 保存配置到本地存储
+function saveConfig(){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(appConfig));
 }
 
-// 计算器逻辑
-let calcVal = "";
-function calcNum(n){
-    calcVal += n;
-    document.getElementById('calcInput').value = calcVal;
+// ====================== 【核心功能】设置导出&导入 ======================
+// 导出全部配置为JSON文件下载
+function exportAllConfig(){
+    triggerVibrate();
+    const jsonStr = JSON.stringify(appConfig, null, 2);
+    const blob = new Blob([jsonStr], {type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = "macOS_Tahoe_Config.json";
+    a.click();
+    URL.revokeObjectURL(url);
 }
-function calcClear(){
-    calcVal = "";
-    document.getElementById('calcIn
+// 导入JSON配置文件
+function importAllConfig(){
+    triggerVibrate();
+    const fileInput = document.getElementById('importFileInput');
+    fileInput.onchange = (e)=>{
+        const file = e.target.files[0];
+        if(!file) return;
+        const reader = new FileReader();
+        reader.readAsText(file);
+        reader.onload = (res)=>{
+            try{
+                const data = JSON.parse(res.target.result);
+                appConfig = data;
+                vibrateStrength = appConfig.vibrateStrength;
+                document.documentElement.classList.toggle('dark', appConfig.darkMode);
+                saveConfig();
+                alert("✅ 配置导入成功！刷新页面即可全部生效");
+            }catch(err){
+                alert("❌ 文件格式错误，请选择正确的JSON配置文件");
+                console.error(err);
+            }
+            fileInput.value = "";
+        }
+    }
+    fileInput.click();
+}
+
+// ====================== 震动函数（仅手机端生效） ======================
+function triggerVibrate() {
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if (isMobile && navigator.vibrate) {
+        navigator.vibrate(vibrateStrength);
+    }
+}
+
+// ====================== 全屏切换 ======================
+function toggleFullscreen() {
+    const fullBtn = document.getElementById('fullscreenBtn');
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+        fullBtn.innerHTML = '<i class="fa fa-compress"></i>';
+    } else {
+        if (document.exitFullscreen) document.exitFullscreen();
+        fullBtn.innerHTML = '<i class="fa fa-expand"></i>';
+    }
+}
+
+// 明暗模式切换
+function toggleDark(){
+    appConfig.darkMode = !appConfig.darkMode;
+    document.documentElement.classList.toggle('dark', appConfig.darkMode);
+    saveConfig();
+}
+
+// ====================== 窗口管理、时间、菜单、壁纸等原有函数 ======================
+function checkDevice() {
+    const rotateTip = document.getElementById('rotateTip');
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const isPortrait = window.innerHeight > window.innerWidth;
+    if (isMobile && isPortrait) rotateTip.style.display = "flex";
+}
+function closeRotateTip(){ document.getElementById('rotateTip').style.display = "none"; }
+window.addEventListener('resize', checkDevice);
+checkDevice();
+
+// 关闭所有下拉菜单
+const allMenus = document.querySelectorAll('.menu-dropdown');
+document.querySelectorAll('.menu-parent').forEach(parent=>{
+    const menu = parent.querySelector('.menu-dropdown');
+    parent.onclick=(e)=>{
+        e.stopPropagation();
+        allMenus.forEach(m=>m.style.display='none');
+        menu.style.display = menu.style.display==='block'?'none':'block';
+        triggerVibrate();
+    }
+})
+document.addEventListener('cl
